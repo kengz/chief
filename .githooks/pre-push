@@ -1,0 +1,27 @@
+#!/bin/sh
+# chief sync guard — block pushes to any remote you haven't explicitly trusted.
+#
+# The vault holds personal content, so pushing is opt-in: nothing leaves your
+# machine until you deliberately allowlist a (private) remote. Trust one with:
+#   git config --add chief.allowedRemote <url>
+# Enable this hook once per clone with:
+#   git config core.hooksPath .githooks
+
+remote_url="$2"
+[ -z "$remote_url" ] && remote_url="$1"   # fall back to the remote name / bare URL
+
+if git config --get-all chief.allowedRemote | grep -Fxq "$remote_url"; then
+  exit 0
+fi
+
+cat >&2 <<EOF
+
+⛔ chief sync guard: push to "$remote_url" is blocked — it is not an allowlisted remote.
+
+   This vault holds personal content, so pushing is opt-in. If you trust this remote
+   (keep it PRIVATE), allowlist it once and push again:
+
+       git config --add chief.allowedRemote "$remote_url"
+
+EOF
+exit 1

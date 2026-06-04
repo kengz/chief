@@ -1,0 +1,14 @@
+# Runtime / personal / secret — never committed
+*.env
+.env
+**/settings.local.json
+.claude/scheduled_tasks.lock
+.claude/worktrees/
+.claude/todos
+.claude/seen-urls.txt
+.obsidian/
+
+# Large data / model artifacts from your own projects — add formats as needed
+# *.parquet
+# *.ckpt
+# *.safetensors
