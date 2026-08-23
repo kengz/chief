@@ -1,14 +1,60 @@
-# Runtime / personal / secret — never committed
-*.env
-.env
-**/settings.local.json
-.claude/scheduled_tasks.lock
-.claude/worktrees/
-.claude/todos
-.claude/seen-urls.txt
-.obsidian/
+# ════════════════════════════════════════════════════════════════════════
+#  chief — git carries the TOOLKIT, not your notes.
+#
+#  A vault fills up with real things: names, calendars, money, health, the
+#  half-written thought you would not say out loud. The toolkit is what you
+#  would share; the content never is. So this file is default-deny — git
+#  sees nothing until a line below names it, and no note is ever named.
+#
+#  That is a safety rail, not a limitation. Obsidian Sync (or Syncthing, or
+#  a private clone with these lines removed) carries the content between
+#  your own machines, end to end, without it ever reaching a git remote.
+#  Nothing you write here is tracked, so a repo leak exposes none of it.
+#
+#  The exception is the four filled-in vault files below, because a template
+#  nobody can read is not a template. Overwrite them with your own week; every
+#  note you add after that is ignored.
+# ════════════════════════════════════════════════════════════════════════
+/*
+!/.claude/
+.claude/intel-sources.md
+!/.githooks/
+!/.gitignore
+!/CLAUDE.md
+!/INSTITUTION.md
+!/README.md
+!/LICENSE
 
-# Large data / model artifacts from your own projects — add formats as needed
-# *.parquet
-# *.ckpt
-# *.safetensors
+# The four filled-in notes below are tracked so the template can be read at all.
+# They are a starting point, not a place to keep working: once they are yours,
+# `git rm --cached` them and everything you write after that is ignored.
+!/index.md
+!/planner.md
+!/fleet.md
+!/projects/
+!/projects/example/
+!/projects/example/status.md
+!/archive/
+archive/*
+!/archive/daily/
+archive/daily/*
+!/archive/daily/.gitkeep
+!/areas/
+areas/*
+!/areas/.gitkeep
+!/inbox/
+inbox/*
+!/inbox/.gitkeep
+
+# Within the toolkit, still keep secrets, machine-local overrides, and
+# transient runtime state out of git.
+.claude/secrets.env
+.claude/settings.local.json
+.claude/seen-urls.txt
+.claude/scheduled_tasks.json
+.claude/scheduled_tasks.lock
+.claude/todos
+.claude/worktrees/
+.claude/projects/
+.obsidian/
+*.env
