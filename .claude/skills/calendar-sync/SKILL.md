@@ -15,4 +15,4 @@ Activity-driven, never a loop: sync opportunistically when the day's schedule co
 1. Read the day + tz from `planner.md`'s `updated` frontmatter; shell `date` for any math.
 2. List events — `ToolSearch` → `select:mcp__claude_ai_Google_Calendar__list_events`, then call it for the **primary calendar, today**, planner tz (`startTime`/`endTime` offset-less ISO **+** `timeZone`). Unreachable → leave the agenda as-is and say so.
 3. Rewrite `### 📅 Agenda` (heading → next `###`/`##`): `- HH:MM — title`, all-day as `- All day — title`, `_Nothing scheduled._` if none. Touch only that section.
-4. Persist per `chief.syncMethod` (`git config chief.syncMethod`): `obsidian` ⇒ Write; `git`/`both` ⇒ commit (`planner: sync agenda`) + push.
+4. Persist by **writing `planner.md`** — it's git-ignored content carried by Obsidian Sync, so no commit/push (the Write is the durable record).
