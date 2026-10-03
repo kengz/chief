@@ -1,0 +1,37 @@
+---
+name: state
+description: Chief's records — where each lives under records/, the work list, and the daily brief that writes the planner. Load before reading or writing a record, on "good morning" or "the brief", when asked what is in flight, and before creating a new record.
+---
+
+# State
+
+[`AGENTS.md`](../../../AGENTS.md) is the neutral source: the records, what each answers, who writes it, and the rule before a new one is created. Here is where they sit.
+
+| record | here |
+|---|---|
+| work list | [`records/WORK_LIST.md`](../../../records/WORK_LIST.md) |
+| approvals | [`records/approvals/`](../../../records/approvals/): `machines.md` and the live rulings |
+| planner | `planner.md`, in the vault |
+| where projects run | the fleet tool's `map` command (its configuration, not a record) |
+
+Per-record details:
+
+1. `machines.md` is in git, so it carries purpose, scope, owner, validation state and evidence; the transport's own configuration stays on the machine.
+2. Resolve a project's owner with `map` before picking a machine; a vault page can name a box the map retired.
+3. A dispatch is a work-list row written when it is sent, carrying the brief's path and the lane; a reversal edits that row in place.
+4. The planner: Chief updates it at project milestones and coordinates any concurrent edit; it is archived by its `updated` date, so a skipped day leaves an honest gap.
+5. `records/brief-last-run` is the daily brief's anchor, overwritten whole.
+
+## The daily brief
+
+[`brief-runner`](../../../.claude/agents/brief-runner.md) writes the planner. The procedure is the runner's; these are the caller's.
+
+1. **Never run it as a `/goal`.** A goal installs a stop hook, and a recurring chore that takes over the session's stop condition outranks whatever task was actually running.
+2. Launch it in the background, do not block, and relay it in the runner's order, glance sections only.
+3. Act on intel, never relay it: dispatch what is material to the project it touches, in this turn.
+4. If the sweep collides with the founder's own check-off, the founder's `[x]` wins. Bump the frontmatter `updated` stamp in one atomic edit and let it re-upload.
+5. **A project card shows landings by slice:** each roadmap slice, ticked with its landing date only when the whole slice is on main, an open one with a few words of state. Follow-ons, fixes, cleanups, hashes and measures stay in the work list.
+
+## Meters
+
+1. A seat's tokens are recorded below its session, not beside it, so a meter that does not recurse prints a floor: recurse, or call the figure a lower bound.

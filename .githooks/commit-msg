@@ -1,0 +1,28 @@
+#!/bin/sh
+# Refinement's evidence is the Anomaly: trailers, so a fix commit must carry one.
+# Every repo whose core.hooksPath points here gets this check; nobody has to remember it.
+# Only a parsed trailer counts: measure.sh reads trailers, so a line in the body is invisible to it.
+# --selftest proves it refuses a bare fix and passes a fix with a trailer and a non-fix.
+check() { # check <message-file>
+  subject=$(head -n 1 "$1")
+  case "$subject" in
+    fixup!*|squash!*) return 0 ;;
+    fix:*|fix!:*|fix\(*|fix\ *) git interpret-trailers --parse "$1" | grep -qE '^Anomaly: *[^ ].{19,}' && return 0
+      echo "refused: a fix commit names its anomaly in an 'Anomaly:' trailer:" >&2
+      echo "  what was expected, what happened, and the assumption that failed," >&2
+      echo "  on one line in the last paragraph, beside Co-Authored-By (git parses only that one)." >&2
+      return 1 ;;
+  esac
+  return 0
+}
+if [ "${1:-}" = "--selftest" ]; then
+  d=$(mktemp -d); n=0
+  printf 'fix(x): y\n' > "$d/a"; check "$d/a" 2>/dev/null && { echo "FAIL: a bare fix passed"; n=1; }
+  printf 'fix(x): y\n\nAnomaly: expected A, saw B; assumed C held\n' > "$d/b"; check "$d/b" || { echo "FAIL: a fix with a trailer was refused"; n=1; }
+  printf 'docs: y\n' > "$d/c"; check "$d/c" || { echo "FAIL: a non-fix was refused"; n=1; }
+  printf 'fix(x): y\n\nAnomaly:\n' > "$d/e"; check "$d/e" 2>/dev/null && { echo "FAIL: an empty trailer passed"; n=1; }
+  printf 'fix(x): y\n\nAnomaly: expected A, saw B; assumed C held\n\nbody after it\n' > "$d/g"; check "$d/g" 2>/dev/null && { echo "FAIL: an Anomaly line outside the trailer block passed"; n=1; }
+  printf 'fix!: y\n' > "$d/f"; check "$d/f" 2>/dev/null && { echo "FAIL: a bare fix! passed"; n=1; }
+  rm -rf "$d"; [ "$n" = 0 ] && echo "SELFTEST PASS: commit-msg refuses a bare fix only"; exit "$n"
+fi
+check "$1"

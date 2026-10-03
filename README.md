@@ -1,141 +1,64 @@
 # Chief
 
-A setup that turns [Claude Code](https://claude.com/claude-code) into your **chief of staff**. Two jobs:
+A setup that turns [Claude Code](https://claude.com/claude-code) into your chief of staff.
 
-1. **Second brain** — its memory: a folder of Markdown notes (a planner, a card per project, a daily brief) that you talk into and it keeps current. Just files, readable and editable in any editor; [Obsidian](https://obsidian.md) is the nice one.
-2. **Right hand** — its hands: the `.claude/` toolkit of skills and agents, plus an adapter that drives Claude Code sessions in your own repos, on this machine or another. You can **attach** to any of them — drop into the same terminal session it is driving and take the keyboard.
+You are the founder. Chief is a long-running session that holds the purpose of each project, dispatches the work to project sessions, reviews what comes back, and keeps the few records a session must not lose.
 
-The notes grow as you talk to it; the toolkit grows as the work calls for it.
+## What is in it
 
-## Setup — the institution
+1. **Rules:** `AGENTS.md` holds everything that binds a session.
+    1. Principles: five axioms every rule must derive from.
+    2. Premises: what the founder decides, given and not derived.
+    3. Method: the laws for changing, moving, tracing, refining and writing work.
+    4. Institution: the roles (founder, chief, lead, engineer), authority, dispatch, delivery and records.
+    5. Codification: how the rules, skills and history are kept.
+2. **`CLAUDE.md`:** exactly `@AGENTS.md`, so Claude Code and any other agent read the same file.
+3. **Skills** in `.agents/skills/`, which Claude mirrors:
+    1. `fleet`: driving persistent sessions across machines.
+    2. `state`: the records and the daily brief.
+    3. `lead-role`: what a project's lead session owns, plus a deck kit for progress decks.
+    4. `refine-instructions`: measuring the work and improving the rules from evidence.
+4. **Agents** in `.claude/agents/`: `engineer`, `verifier`, `challenger` and `brief-runner`.
+5. **Records** in `records/`: the work list and the approvals. `planner.md` and `projects/` are small templates for the founder's day and project cards.
+6. **Guards** in `.githooks/`:
+    1. `commit-msg` requires a fix commit to name its anomaly.
+    2. `pre-push` refuses conflict markers, GNU-only shell constructs, dated incident history in skills, unratified edits to `AGENTS.md`, and unlisted remotes.
 
-The way this team works is written in [`INSTITUTION.md`](INSTITUTION.md): three levels, one lifecycle, four review lenses.
+## Install
 
-- **The three levels** are CTO (*why* — the vision), lead (*what* — the roadmap), engineer (*how* — the build). An agent can fill any of them.
-- **The four lenses** are the stances a reviewer puts on for someone else's work: peer/expert, adversary, fact-checker, editor. **One lens per reviewer**, and the convenor picks which the artifact needs — seats are a cost.
-- **You are the founder** — the human the whole thing answers to, above all three levels. Chief holds the CTO level; the levels below it are agents.
+You need `git`, `rsync`, `find`, `cmp`, `sha256sum` (or `shasum`) and `bash`.
 
-Adopting it is four steps, and the fourth is where it starts doing anything.
+1. Clone it: `git clone https://github.com/kengz/chief.git && cd chief`
+2. Run `./install.sh`. It does five things:
+    1. copies the skills and agents to `~/.claude` and to `~/.agents` and `~/.codex` for Codex;
+    2. writes `~/.claude/PRINCIPLES.md` from `AGENTS.md`, and a global `~/.claude/CLAUDE.md` that imports it;
+    3. sets `core.hooksPath` to `.githooks` so the guards run;
+    4. checks every file against `.claude/institution-manifest.txt`;
+    5. checks each instruction file against its word ceiling in `.claude/rule-budget`.
+3. Prove it with `./install.sh --check`. It changes nothing and exits 0 only when everything matches.
+4. Open Claude Code in this folder. The session is Chief.
 
-1. **Get it, and turn the push guard on:**
+An existing `~/.claude/CLAUDE.md` that you wrote by hand is left alone; the installer only replaces files it generated.
 
-   ```
-   git clone https://github.com/kengz/chief.git && cd chief
-   git config core.hooksPath .githooks   # git ignores the directory until you say this
-   ```
+## How the parts fit
 
-   The institution itself is **four skills** — `north-star`, `lead-role`, `review`, `writing` — and
-   **five agents**: the engineer and the four review lenses. Alongside them `.claude/` also holds
-   the vault's own operating skills — the daily brief, calendar, sync and remote control — which
-   are useful but not part of the institution. A clone is enough; a session in this repo loads them from `.claude/`.
-
-2. **Each project repo declares its session a lead** with one line near the top of its own `CLAUDE.md`: **You are the LEAD of this project. Load the `lead-role` skill now and work to it.** A pointer, not a pasted copy, so the role is rewritten in one place and every repo gets it.
-
-3. **Give that project the three documents the lead role expects**, in the repo, before you dispatch anything:
-
-   - a **north star** — what the project is for, what would show it was wrong, what it is not doing;
-   - a **roadmap** — that expanded into an ordered list of steps, each a bounded piece of work carrying a question that could come back either way;
-   - a **work list** — `WORK_LIST.md`, beside the roadmap, one row per step, each `next` · `in flight` · `blocked-on(<who>)` · `done`.
-
-   Ask the session to draft all three from a paragraph of context and correct what it writes. Until they exist the lead has no queue, and a lead with no queue idles — which the institution treats as a defect rather than a state.
-
-4. **One thing runs:** `.githooks/pre-push`, turned on by the `git config` line
-   above. It refuses to push to any remote you have not explicitly trusted, because this vault
-   fills up with real content and nothing should leave the machine by accident.
-
-**Start smaller if you want.** The four review lenses in `.claude/agents/` and the `writing` skill are self-contained and pay from day one; the three level-skills assume a team with more than one session.
-
-## Usage
-
-You cloned it above. Run `claude` from inside the folder and that's Chief. (Fork it instead if you want your own remote to sync from; a zip download works for one machine with no sync.)
-
-From there, it's mostly just chat — a few threads worth naming:
-
-- **Brief** — say *"morning"* for your daily brief: Chief archives yesterday, clears done items, and refreshes Today (agenda + inbox), intel, and project status into `planner.md`.
-- **Chat** — talk to Chief about anything (*"what's next?"*, *"add this doc"*); it lands in your vault — your **planner** (`planner.md`: Today, Focus, Projects), to read and edit.
-- **Dispatch** — just ask: *"fix the failing tests in project X"*, *"run something on a box"*. Chief works in your real repos and machines, never the vault.
-- **Take over** — ask Chief for a session's handle and `attach` to take the wheel.
-
-**Handy commands:**
-- **`/remote-control`** — drive a session running on a box from the Claude app (or claude.ai/code), on any device — your phone as a remote. Chief sets it up for you.
-- **`/goal`** — hand Chief a bounded objective; it self-drives to completion, checking in only as needed (this is how it runs the fleet).
-- **`/loop`** — run a prompt or check on a recurring interval (polling, babysitting a job).
-
-**Prerequisites:** [Claude Code](https://claude.com/claude-code). Optional: [Obsidian](https://obsidian.md) for real-time sync to all your devices, a **private** GitHub repo to sync across machines, and [claude-fleet](https://github.com/kengz/claude-fleet) for a remote fleet.
-
-### Sync
-
-The vault is just a folder, so **sync is optional** — one machine needs none. To run across machines, **Chief sets up sync for you** (the `sync-setup` skill). Two routes, for reference:
-
-- **git** — free, not real-time. Carries the **toolkit** to your **private** repo. The `.gitignore` is default-deny, and the only notes it names are the four filled-in ones you overwrite on day one. Untrack those (`git rm --cached`) once they are yours, and nothing you write is ever committed, so a leak of the repo exposes none of it.
-- **[Obsidian Sync](https://obsidian.md/sync)** — paid, real-time, reaches your phone. Carries **the notes**, end to end, without them ever touching a git remote.
-
-The split is the point. Share the toolkit; keep the content.
-
-### Fleet (optional)
-
-To drive Claude across other machines, just ask Chief to **set up the fleet**. It clones [claude-fleet](https://github.com/kengz/claude-fleet) — a separate repo, not copied into this vault — puts its CLI on PATH, and writes your `~/.config/claude-fleet/fleet.conf`, asking only for host details it cannot assume.
-
-From then on the **Fleet** protocol in `CLAUDE.md` just works; local sessions need no remote at all.
-
-The one bit you do by hand (optional): to also load claude-fleet as a Claude Code **plugin** — interactive slash commands an agent can't run for you — type:
-
-```
-/plugin marketplace add kengz/claude-fleet
-/plugin install claude-fleet
-```
-
-That loads the claude-fleet skill alongside the CLI. It's optional — Chief operates the fleet from the CLI alone.
-
-## How it works
-
-**Chief's premise:** native Claude Code features + good general principles + a few salient tools and the vault structure — not a pile of bespoke per-task tooling.
-
-At its simplest, Chief is just the **second brain** — a Markdown vault you read, write, and get briefed from; a complete way to use it on its own, no agents or machines. One repo:
-
-```
-chief/
-├── CLAUDE.md       its instructions (ends with @index.md)
-├── INSTITUTION.md  how the team runs — roles, lifecycle, principles
-├── index.md        the always-loaded map, pointing at everything else
-├── planner.md      your planner — Focus + today's brief
-├── fleet.md        what work is in flight, and on which machine
-├── inbox/          raw capture
-├── projects/       one thin card per sibling repo
-├── areas/          ongoing life threads
-├── archive/daily/  dated planner.md history
-└── .claude/        skills · agents · settings (the toolkit)
-```
-
-**The tracked files are a worked-through starting point — overwrite them with your own.** Everything you add afterwards is git-ignored, so notes never leave your machine unless you choose a remote.
-
-The vault (`planner.md`, `projects/`, `inbox/`, `areas/`) is the memory; `CLAUDE.md` + `.claude/` (derived from [good-code](https://github.com/kengz/good-code)) are the right hand's instructions and tools. Code never lives here — Chief reaches your repos through thin *cards*.
-
-The **right hand** is Chief running work for you — directly in the conversation, or by driving Claude sessions where your code and machines live. You already run Claude Code a session per project (*terminal → `claude`*); Chief drives those, **local by default**, stretching across machines for a fleet:
-
-```
-  base:                            claude   you run it (local)
-  remote:             ssh → tmux → claude   on another machine
-  chief:  adapter → [ssh →] tmux → claude   Chief drives it
-```
-
-Wrap a Claude session in `tmux` (plus `ssh` for a remote box) and it becomes a durable surface. Chief drives that **same** session through its adapter ([claude-fleet](https://github.com/kengz/claude-fleet), a stateless CLI + plugin) — exactly as you would by hand — so either of you can `attach` and take over, anytime.
-
-```mermaid
-flowchart TD
-    you([You]) -->|talk| chief["chief (claude)"]
-    chief -->|remembers| vault[("second brain<br>Obsidian · git vault")]
-    chief -->|drives| adapter["right hand<br>claude-fleet adapter"]
-    adapter -.->|attach| sessions["Claude sessions<br>[ssh →] tmux → claude"]
-    you -.->|attach| sessions
-```
-
-Going remote is optional — it just adds the `ssh` hop; the full protocol lives in `CLAUDE.md`'s **Fleet** section. Standing up a box — Tailscale access, a hardened `sshd`, your dotfiles, and Claude Code in `tmux` — is standard setup Chief handles for you, no special repo required.
+1. `AGENTS.md` is the one hand-edited source. The installer generates the global rules from its first sections, so every repo on the machine loads Principles, Premises, Method and Codification.
+2. Each project repo has its own `AGENTS.md` with a lead-scoped Institution. The `lead-role` skill says what goes in it.
+3. Chief writes the work list when work starts, not when it returns, so work that never returns still leaves a row.
+4. Review is done by someone other than the builder: a verifier asks whether it is right and clear, a challenger asks how it could fail.
+5. `rule-budget` keeps the rules short: adding a rule means cutting or merging another.
+6. The anomaly trailers on fix commits are the evidence `refine-instructions` reads to improve the rules.
 
 ## Make it yours
 
-That's it — it's **yours**. Once you understand it, it's just Claude as your chief of staff: a second brain for your notes, a right hand on your repos and machines — one that grows the more you use it. Grow the vault, add the skills, agents, and tools your work needs, make it your own.
+1. Edit `AGENTS.md` to fit how you work. The installer blocks growth past the word ceilings, and the push guard requires a `FOUNDER-RATIFIED:` line in any commit that changes it.
+2. After editing any skill or agent, run `./install.sh --write-manifest`, commit, then `./install.sh`.
+3. The `fleet` skill assumes a tool that starts and drives persistent sessions on your machines (`map`, `goal`, `send`, `read`, `up`, `restart`). Use your own and rename the verbs.
+4. For the daily brief, copy `.claude/intel-sources.example.md` to `.claude/intel-sources.md` (it is gitignored) and list your feeds. Add calendar or mail connectors to `brief-runner` if you want those sections.
+5. The "vault" is this checkout, synced across your machines (git carries the toolkit; a sync service such as Obsidian can carry the notes). The brief archives each day's notes under `archive/daily/`.
+6. `refine-instructions/measure.sh` finds this repo at `$HOME/projects/chief`; set `CHIEF_REPO` if you cloned it elsewhere.
+7. Keep notes, calendars and anything personal out of git. `.gitignore` allows only the toolkit; allow a push only to remotes you trust with `git config --add chief.allowedRemote <url>`.
 
-## License
+## Licence
 
-[MIT](LICENSE) © kengz
+See `LICENSE`.

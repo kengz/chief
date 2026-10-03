@@ -1,0 +1,12 @@
+5a97edbe104a48262dad5a9c15f4800271e4fd6aadd51d461ecb9d470008d320  .agents/skills/fleet/SKILL.md
+654d3c9fe715724d790ad7d82b7710e44c49f26c83314ce5d8e2fd80096899a4  .agents/skills/lead-role/deck-kit/deck.css
+4b5f8c28703833f8116302f41916393dec9036d0562ef125b622c74f1734687c  .agents/skills/lead-role/deck-kit/DESIGN_SYSTEM.md
+08ee89d8dd62a49e61d80ec92df49b4fc2c5ee617de0758084946a5e2ccbf372  .agents/skills/lead-role/deck-kit/render_deck.py
+cc55aa9db262f1c9b63ef944d8b10f43e43b84e896db23624cf5dc6e15349695  .agents/skills/lead-role/SKILL.md
+06005be42eebaec21df8375a3858bc4d46a744b9d8d4979dbf4c550f8ae35ee1  .agents/skills/refine-instructions/measure.sh
+730015f9e5803b6c00b415860ac2d28b7fcf6da8d91c18d5d6734bf987d42580  .agents/skills/refine-instructions/SKILL.md
+c9f7b86668230f7533b631cbaad74ebbd046d2cc3559d8a52f55b3f497a1c4fc  .agents/skills/state/SKILL.md
+c7f7995da0daae967cfac89ebc320ef7aa14ffbd4389ab46afda3c49bc3a13c1  .claude/agents/brief-runner.md
+23783bee98f788c2b70eb2e7db26628c88c583806fd421d6f167bebc684b0424  .claude/agents/challenger.md
+5c83e74c4778b1c27bd46c38fcf49349e3b4b77796ef72b43d72f3d8d90451d4  .claude/agents/engineer.md
+847c846d7c890d4c66305af395355b33fd858b63a6206553c8773c7ee54d5cda  .claude/agents/verifier.md

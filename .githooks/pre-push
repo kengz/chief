@@ -1,25 +1,145 @@
 #!/bin/sh
-# chief sync guard — block pushes to any remote you haven't explicitly trusted.
+# Push guard. Enable once per clone: git config core.hooksPath .githooks
+# (./install.sh does this). Run `.githooks/pre-push --selftest` to prove each check fires.
 #
-# The vault holds personal content, so pushing is opt-in: nothing leaves your
-# machine until you deliberately allowlist a (private) remote. Trust one with:
-#   git config --add chief.allowedRemote <url>
-# Enable this hook once per clone with:
-#   git config core.hooksPath .githooks
+#   1. no merge-conflict markers in tracked files
+#   2. no GNU-only shell constructs in scripts this push adds (bash 3.2 and BSD must work)
+#   3. no dated incident history in skills (a skill states the current procedure only)
+#   4. AGENTS.md changes carry a FOUNDER-RATIFIED line in the commit message
+#   5. the remote must be allowlisted: git config --add chief.allowedRemote <url>
+PWD_HOOK="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
 
+# Patterns are defined before the self-test: an empty pattern matches every line.
+RE_CONFLICT='^(<<<<<<< |=======$|>>>>>>> )'
+RE_HARD='^[^#]*(mapfile |readarray |declare -A|asorti\(|asort\(|gensub\()'
+RE_SOFT='^[^#]*(date -I|date -d |touch -d |stat -c |sed -i |grep -P |xargs -r )'
+RE_TIMELESS='([Pp]roven|[Vv]erified)( 20[0-9][0-9]-|:| twice| three times| repeatedly| once)|\([Pp]roven[ ---]'
+
+if [ "$1" = "--selftest" ]; then
+  n=0; x=""      # empty: fixtures below read as the literal without being it in this file
+  t() { # t <name> <pattern> <must-match> <must-not-match>
+    printf '%s\n' "$3" | grep -qE "$2" || { echo "FAIL $1: does not catch '$3'"; n=1; }
+    if printf '%s\n' "$4" | grep -qE "$2"; then echo "FAIL $1: fires on '$4', which is clean"; n=1
+    else echo "SELFTEST PASS: $1 catches its defect and spares the clean line"; fi
+  }
+  t conflict "$RE_CONFLICT" '<<<<<<< HEAD' 'a line about <<< nothing'
+  t portability-hard "$RE_HARD" "  map${x}file -t x < f" "# map${x}file is banned here"
+  t portability-soft "$RE_SOFT" "  date${x} -d yesterday" "# date -d needs a fallback"
+  t timeless "$RE_TIMELESS" 'Proven 2026-01-01 on one box' 'a proven `ready` session'
+  # Seed guard end to end. Both arms read the guard's own message, never the exit code:
+  # the hook also refuses an unlisted remote, so a guard that failed open would still exit 1.
+  d=$(mktemp -d) || { echo "FAIL setup: no temp dir"; exit 1; }
+  ( cd "$d" && git init -q . && git config user.email t@t && git config user.name t \
+    && cp "$PWD_HOOK" .git/hook && echo seed > AGENTS.md && git add . \
+    && git commit -qm "unratified edit" ) >/dev/null 2>&1
+  out=$( cd "$d" && sh .git/hook origin https://example.invalid/x.git 2>&1 )
+  if printf '%s\n' "$out" | grep -q 'seed guard'; then echo "SELFTEST PASS: an unratified AGENTS.md commit is refused by the seed guard"
+  else echo "FAIL seed-lock: an unratified AGENTS.md commit did not trip the seed guard"; n=1; fi
+  ( cd "$d" && git commit -q --amend -m 'edit
+FOUNDER-RATIFIED: "go ahead"' ) >/dev/null 2>&1
+  out=$( cd "$d" && sh .git/hook origin https://example.invalid/x.git 2>&1 )
+  if printf '%s\n' "$out" | grep -q 'seed guard'; then echo "FAIL seed-lock: a ratified commit was refused"; n=1
+  else echo "SELFTEST PASS: a ratified commit passes the seed guard"; fi
+  rm -rf "$d"
+  # Portability scope end to end: a GNU-only script already on the remote does not block an
+  # unrelated push, and the same construct in a pushed commit still refuses.
+  d=$(mktemp -d) || { echo "FAIL setup: no temp dir"; exit 1; }
+  ( cd "$d" && git init -q --bare r.git && git init -q w && cd w && git config user.email t@t \
+    && git config user.name t && cp "$PWD_HOOK" .git/hook \
+    && printf 'map%sfile -t x < f\n' "$x" > old.sh && git add . && git commit -qm old \
+    && git remote add origin ../r.git && git push -q origin HEAD:main && git fetch -q origin \
+    && echo ok > note.txt && git add . && git commit -qm clean ) >/dev/null 2>&1
+  out=$( cd "$d/w" && sh .git/hook origin https://example.invalid/x.git 2>&1 )
+  if printf '%s\n' "$out" | grep -q 'GNU-only'; then echo "FAIL portability-scope: an old script refused an unrelated push"; n=1
+  else echo "SELFTEST PASS: a script already on the remote does not block an unrelated push"; fi
+  ( cd "$d/w" && printf 'map%sfile -t y < g\n' "$x" > new.sh && git add . && git commit -qm new \
+    && echo ok > later.txt && git add . && git commit -qm later ) >/dev/null 2>&1
+  out=$( cd "$d/w" && sh .git/hook origin https://example.invalid/x.git 2>&1 )
+  if printf '%s\n' "$out" | grep -q 'new.sh'; then echo "SELFTEST PASS: a GNU-only script in a pushed commit is refused"
+  else echo "FAIL portability-scope: a GNU-only script in a pushed commit was not refused"; n=1; fi
+  rm -rf "$d"
+  [ "$n" = 0 ] && echo "SELFTEST PASS: $0" || echo "SELFTEST FAIL: $0"
+  exit "$n"
+fi
+
+# 1. Conflict markers.
+conflicted=$(git ls-files -z | xargs -0 grep -lE "$RE_CONFLICT" 2>/dev/null || true)
+if [ -n "$conflicted" ]; then
+  echo "PUSH REFUSED — merge conflict markers in tracked files:" >&2
+  printf '%s\n' "$conflicted" | sed 's/^/    /' >&2
+  exit 1
+fi
+
+# 2. Portability. Scope: shell files changed by commits not yet on any remote, because a file
+# already on a remote cannot be fixed by this push. If commits cannot be listed, scan everything.
+# Constructs with no bash 3.2 or BSD equivalent are never allowed; those with one are allowed
+# only with the fallback on the same line (a line carrying 2>/dev/null counts as that).
+if range=$(git rev-list HEAD --not --remotes 2>/dev/null); then
+  SHELL_FILES=$(for rev in $range; do git show --name-only --format= "$rev"; done | sort -u \
+    | grep -E '(\.sh|^\.githooks/pre-push)$' \
+    | while read -r f; do [ -f "$f" ] && echo "$f"; done)
+else
+  SHELL_FILES=$(git ls-files '*.sh' 2>/dev/null; echo .githooks/pre-push)
+fi
+hard=""; soft=""
+if [ -n "$SHELL_FILES" ]; then
+  hard=$(echo "$SHELL_FILES" | xargs grep -HnE "$RE_HARD" 2>/dev/null || true)
+  soft=$(echo "$SHELL_FILES" | xargs grep -HnE "$RE_SOFT" 2>/dev/null | grep -v '2>/dev/null' || true)
+fi
+if [ -n "$hard" ] || [ -n "$soft" ]; then
+  echo "PUSH REFUSED — GNU-only constructs in a script that must run on either platform:" >&2
+  [ -n "$hard" ] && { echo "  no portable equivalent — rewrite:" >&2; printf '%s\n' "$hard" | sed 's/^/    /' >&2; }
+  [ -n "$soft" ] && { echo "  needs a BSD fallback on the same line (try GNU, 2>/dev/null, then BSD):" >&2
+                      printf '%s\n' "$soft" | sed 's/^/    /' >&2; }
+  exit 1
+fi
+
+# 3. Skills are timeless. This matches the marked form only; unmarked narrative still needs an eye.
+timeless=$(grep -lE "$RE_TIMELESS" .agents/skills/*/SKILL.md 2>/dev/null || true)
+if [ -n "$timeless" ]; then
+  echo "PUSH REFUSED — dated incident history in a skill, which states current procedure only:" >&2
+  printf '%s\n' "$timeless" | sed 's/^/    /' >&2
+  exit 1
+fi
+
+# 4. The seed (AGENTS.md) is locked: each unpushed commit touching it must quote the founder.
+# A failure to list commits refuses; a lock that fails open is not a lock.
+seed_guard() {
+  local range rev
+  range=$(git rev-list HEAD --not --remotes 2>/dev/null) || {
+    echo "chief seed guard: could not list the commits being pushed — refusing rather than guessing" >&2; return 1; }
+  for rev in $range; do
+    git show --name-only --format= "$rev" 2>/dev/null | grep -qx 'AGENTS.md' || continue
+    git log -1 --format=%B "$rev" | grep -q 'FOUNDER-RATIFIED:' && continue
+    cat >&2 <<SEEDEOF
+
+chief seed guard: $(git log -1 --format=%h\ %s "$rev") changes AGENTS.md.
+
+   The seed is locked and changes to it need the founder. If they approved this, say so in
+   the commit message, quoting them:
+
+       FOUNDER-RATIFIED: "<their words>"
+
+   If they did not, put the change in a skill instead.
+
+SEEDEOF
+    return 1
+  done
+  return 0
+}
+seed_guard || exit 1
+
+# 5. Remote allowlist. The check runs after the seed guard so a trusted remote still meets it.
 remote_url="$2"
-[ -z "$remote_url" ] && remote_url="$1"   # fall back to the remote name / bare URL
-
+[ -z "$remote_url" ] && remote_url="$1"
 if git config --get-all chief.allowedRemote | grep -Fxq "$remote_url"; then
   exit 0
 fi
-
 cat >&2 <<EOF
 
-⛔ chief sync guard: push to "$remote_url" is blocked — it is not an allowlisted remote.
+chief sync guard: push to "$remote_url" is blocked — it is not an allowlisted remote.
 
-   This vault holds personal content, so pushing is opt-in. If you trust this remote
-   (keep it PRIVATE), allowlist it once and push again:
+   If you trust this remote, allowlist it once and push again:
 
        git config --add chief.allowedRemote "$remote_url"
 

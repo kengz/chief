@@ -1,33 +1,28 @@
 ---
 type: planner
 updated: 1970-01-01T00:00:00+00:00
-host: your-machine
 ---
 # Planner
-## ☀️ Today
-_Say "good morning" (or run `/morning-brief`) to populate today's date, agenda, inbox, and intel._
 
-### 📅 Agenda
-_Nothing scheduled. (Synced from Google Calendar via the `calendar-sync` skill.)_
+## Today
 
-### 📨 Inbox
+### Agenda
+_Nothing scheduled._
+
+### Inbox
 _Inbox clear._
 
-### 📰 Intel
-_Today's reads land here from the morning brief._
+### Intel
+_Today's reads land here from the daily brief._
 
-## 🎯 Focus
-### 🏠 Personal
-- _What you're working on outside of work — add your own._
+## Focus
+- _What you are working on; add your own._
 
-### 💼 Work
-- _Current work threads. Chief tracks status here and dispatches the real work into your repos._
-
-## 🗂️ Backlog
+## Backlog
 - _Things to get to, not yet started._
 
-## 📊 Projects
-_One auto-refreshed status line per active project card (see `projects/`). Populated by the morning brief._
+## Projects
+_One status line per active project, refreshed by the daily brief._
 
-## 📝 Scratch
-_Loose working notes — promote to Focus / Backlog or a project card when they firm up._
+## Scratch
+_Loose notes; promote them to Focus or a project card when they firm up._

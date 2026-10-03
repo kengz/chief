@@ -1,0 +1,171 @@
+/* Deck design system — professional/technical research deck.
+   HTML/CSS → weasyprint. 16:9 (1280×720pt artboard). IBM Plex. Swiss grid via flexbox.
+   Design spec: FT/DeepMind/Müller-Brockmann/π + Tufte data-ink. Units in pt (1 unit = 1 artboard unit). */
+
+:root {
+  --sans: "IBM Plex Sans", sans-serif;
+  --mono: "IBM Plex Mono", monospace;
+  --serif: "IBM Plex Serif", serif;
+
+  /* ink + neutrals — the deck is ~95% these */
+  --ink:   #17191E;
+  --ink-2: #565B64;
+  --ink-3: #8A9099;
+  --hair:  #E2E4E8;
+  --panel: #F4F5F7;
+  --paper: #FFFFFF;
+
+  /* ONE accent (FT teal) + a single 2nd data hue */
+  --accent:   #0D7680;
+  --accent-ink: #0A5A62;
+  --wash:     #E6F0F0;
+  --data-2:   #C2410C;
+  --amber:    #B23A32;   /* signed-negative / honest-caveat only, desaturated */
+
+  /* geometry */
+  --mt: 56pt; --mb: 48pt; --ms: 64pt;
+  --gutter: 24pt; --col: 74pt;   /* 12 cols of 74 + 11 gutters of 24 = 888 live width... */
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+@page { size: 1280pt 720pt; margin: 0; }
+
+body { font-family: var(--sans); color: var(--ink); background: var(--paper); }
+
+/* ---------- the slide (flex column: head / body / foot) ---------- */
+.slide {
+  position: relative;
+  width: 1280pt; height: 720pt;
+  padding: var(--mt) var(--ms) var(--mb) var(--ms);
+  page-break-after: always;
+  background: var(--paper);
+  overflow: hidden;
+  display: flex; flex-direction: column;
+}
+.slide:last-child { page-break-after: auto; }
+.slide.warm { background: #FAF9F6; }
+
+/* horizontal bands + columns (flex — weasyprint-safe, emulates the 12-col grid) */
+.cols { display: flex; }
+.cols.g-lg { gap: 56pt; } .cols.g-md { gap: 40pt; } .cols.g-sm { gap: 24pt; }
+.cols.top { align-items: flex-start; } .cols.center { align-items: center; } .cols.baseline { align-items: baseline; }
+/* fixed proportional columns aligned to the 12-grid feel */
+.c-4  { flex: 0 0 33.33%; } .c-5 { flex: 0 0 41.66%; } .c-6 { flex: 0 0 50%; }
+.c-7  { flex: 0 0 58.33%; } .c-8 { flex: 0 0 66.66%; } .c-3 { flex: 0 0 25%; }
+.c-40 { flex: 0 0 40%; }    .c-45 { flex: 0 0 45%; }   .c-55 { flex: 0 0 55%; } .c-60 { flex: 0 0 60%; }
+.grow { flex: 1 1 0; min-width: 0; } .auto { flex: 0 0 auto; }
+
+/* ---------- typographic scale (exact) ---------- */
+.eyebrow {
+  font-family: var(--mono); font-size: 11pt; font-weight: 500; line-height: 1;
+  letter-spacing: 1.2pt; text-transform: uppercase; color: var(--accent-ink);
+}
+.eyebrow .sep { color: var(--ink-3); margin: 0 6pt; }
+.eyebrow .dim { color: var(--ink-3); }
+
+h1.h1 { font-family: var(--sans); font-size: 34pt; font-weight: 600; line-height: 1.12; letter-spacing: -0.4pt; color: var(--ink); max-width: 22ch; }
+h1.h1.wide { max-width: 30ch; }
+h2.h2 { font-family: var(--sans); font-size: 24pt; font-weight: 600; line-height: 1.18; letter-spacing: -0.2pt; color: var(--ink); }
+.h3   { font-family: var(--sans); font-size: 22pt; font-weight: 500; line-height: 1.25; color: var(--ink); }
+.lede { font-family: var(--sans); font-size: 18pt; font-weight: 400; line-height: 1.45; color: var(--ink-2); max-width: 60ch; }
+.body { font-family: var(--sans); font-size: 18pt; font-weight: 400; line-height: 1.45; color: var(--ink); max-width: 34em; }
+.cap  { font-family: var(--sans); font-size: 14pt; line-height: 1.4; color: var(--ink-2); }
+.label{ font-family: var(--mono); font-size: 13pt; font-weight: 500; line-height: 1.2; }
+b, strong { font-weight: 600; }
+.num  { font-family: var(--mono); font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; }
+.chip { font-family: var(--mono); background: var(--panel); padding: 1pt 6pt; border-radius: 3pt; font-size: 0.9em; color: var(--accent-ink); }
+.accent { color: var(--accent-ink); } .caveat { color: var(--amber); font-weight: 500; }
+
+/* ---------- regions ---------- */
+.s-head { flex: 0 0 auto; }
+.s-head .eyebrow { display: block; margin-bottom: 16pt; }
+.s-head .lede { margin-top: 14pt; }
+.s-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; padding-top: 32pt; }
+/* short slides opt into vertical centring so content doesn't strand at the top (tall/full
+   slides keep top-anchoring — centring them would collide with a multi-line header) */
+.s-body.vc { justify-content: center; padding-top: 0; padding-bottom: 12pt; }
+.s-foot {
+  flex: 0 0 auto; display: flex; justify-content: space-between; align-items: center;
+  font-family: var(--mono); font-size: 9pt; color: var(--ink-3); letter-spacing: 0.3pt;
+  border-top: 1pt solid var(--hair); padding-top: 12pt; margin-top: 16pt;
+}
+.s-foot .note { color: var(--ink-2); max-width: 82ch; }
+
+/* accent rule */
+.rule { width: 44pt; height: 3pt; background: var(--accent); border: 0; margin: 20pt 0; }
+
+/* ---------- big data callout (no colored box) ---------- */
+.datum { font-family: var(--mono); font-weight: 500; font-size: 72pt; line-height: 1; letter-spacing: -1pt; font-variant-numeric: tabular-nums; color: var(--ink); }
+.stat .v { font-family: var(--mono); font-weight: 500; font-size: 46pt; line-height: 1; letter-spacing: -0.5pt; font-variant-numeric: tabular-nums; color: var(--ink); }
+.stat .l { font-size: 13pt; color: var(--ink-3); margin-top: 10pt; max-width: 18ch; line-height: 1.35; }
+.stat.on .v { color: var(--accent-ink); }
+.stat-row { display: flex; gap: 52pt; }
+
+/* ---------- key/value ruled list (replaces bullets-in-boxes) ---------- */
+.ruled { border-top: 1pt solid var(--hair); }
+.ruled .row { display: flex; gap: 24pt; padding: 14pt 0; border-bottom: 1pt solid var(--hair); }
+.ruled .row .k { flex: 0 0 26%; font-weight: 600; font-size: 16pt; color: var(--ink); }
+.ruled .row .k .m { font-family: var(--mono); color: var(--accent-ink); font-weight: 500; }
+.ruled .row .v { flex: 1 1 0; font-size: 15pt; color: var(--ink-2); line-height: 1.42; }
+.ruled .row .v b { color: var(--ink); }
+
+/* numbered sequence (max 3, sparse) */
+.seq .item { display: flex; gap: 18pt; padding: 12pt 0; }
+.seq .item .n { font-family: var(--mono); font-size: 15pt; color: var(--accent-ink); flex: 0 0 auto; font-weight: 500; }
+.seq .item .t { font-size: 16pt; line-height: 1.4; color: var(--ink); }
+.seq .item .t .d { color: var(--ink-2); }
+
+/* figure */
+figure.fig { position: relative; }
+figure.fig img, figure.fig svg { display: block; width: 100%; height: auto; }
+figure.fig figcaption { font-family: var(--mono); font-size: 11pt; color: var(--ink-3); margin-top: 10pt; }
+
+/* ---------- title slide ---------- */
+.slide.title { justify-content: center; }
+.slide.title .wordmark { font-size: 88pt; font-weight: 600; letter-spacing: -2.5pt; line-height: 1; }
+.slide.title .tagline { font-size: 28pt; font-weight: 400; color: var(--ink-2); margin-top: 22pt; max-width: 26ch; line-height: 1.25; }
+.slide.title .meta { margin-top: 40pt; font-family: var(--mono); font-size: 12pt; color: var(--ink-3); letter-spacing: 0.5pt; }
+
+/* section divider */
+.slide.divider { justify-content: center; }
+.slide.divider h1 { font-size: 44pt; font-weight: 600; letter-spacing: -0.6pt; max-width: 24ch; line-height: 1.1; }
+
+/* ---------- comparison matrix (rows × capability columns, ✓/✗) ---------- */
+.matrix { width: 100%; border-collapse: collapse; }
+.matrix th, .matrix td { padding: 9pt 10pt; border-bottom: 1pt solid var(--hair); }
+.matrix thead th { font-family: var(--mono); font-size: 11.5pt; font-weight: 500; letter-spacing: 0.3pt; color: var(--ink-2); text-align: center; vertical-align: bottom; line-height: 1.25; }
+.matrix thead th.rowhead { text-align: left; color: var(--ink-3); }
+.matrix tbody th { text-align: left; font-weight: 600; font-size: 15.5pt; color: var(--ink); white-space: nowrap; }
+.matrix tbody th .sub { display: block; font-family: var(--mono); font-size: 10.5pt; font-weight: 400; color: var(--ink-3); letter-spacing: 0.2pt; margin-top: 3pt; }
+.matrix td { text-align: center; font-size: 17pt; }
+.matrix td.yes { color: var(--accent-ink); font-weight: 600; }
+.matrix td.no { color: var(--ink-3); }
+.matrix tr.self th, .matrix tr.self td { background: var(--wash); border-bottom-color: var(--accent); }
+.matrix tr.self th { color: var(--accent-ink); }
+.matrix tr.self td.yes { color: var(--accent-ink); }
+
+/* ---------- validation spine (intuition × grounding × test × status × evidence) ---------- */
+.matrix.spine { table-layout: fixed; }
+.matrix.spine th, .matrix.spine td { text-align: left; vertical-align: top; padding: 7.5pt 12pt 7.5pt 0; line-height: 1.26; }
+.matrix.spine thead th.rowhead { font-size: 10pt; letter-spacing: 0.6pt; text-transform: uppercase; padding-bottom: 6pt; }
+.matrix.spine col, .matrix.spine thead th:nth-child(1) { width: 22%; }
+.matrix.spine thead th:nth-child(2) { width: 24%; } .matrix.spine thead th:nth-child(3) { width: 20%; }
+.matrix.spine thead th:nth-child(4) { width: 17%; } .matrix.spine thead th:nth-child(5) { width: 17%; }
+.matrix.spine tbody th { font-size: 12.5pt; font-weight: 600; color: var(--ink); white-space: normal; }
+.matrix.spine tbody td { font-size: 11pt; color: var(--ink-2); }
+.matrix.spine .src { display: block; font-family: var(--mono); font-size: 9.5pt; color: var(--ink-3); letter-spacing: 0.2pt; margin-top: 4pt; }
+.matrix.spine .sub { font-family: var(--mono); font-size: 9.5pt; color: var(--ink-3); }
+/* status chips */
+.st { display: inline-block; font-family: var(--mono); font-size: 10pt; font-weight: 500; letter-spacing: 0.3pt;
+      padding: 1.5pt 6pt; border-radius: 3pt; line-height: 1.3; white-space: nowrap; }
+.st.ok      { background: var(--wash);  color: var(--accent-ink); }
+.st.test    { background: var(--panel); color: var(--ink);        }
+.st.refuted { background: #F6E4E2;      color: var(--amber);      }
+.st.blocked { background: #F6E4E2;      color: var(--amber);      }
+.st.notrun  { background: var(--panel); color: var(--ink-3);      }
+
+/* ---------- plain-language gloss beside an equation / dense object ---------- */
+.gloss { font-size: 15pt; line-height: 1.4; color: var(--ink-2); }
+.gloss b, .gloss .lead { color: var(--accent-ink); font-weight: 600; }
+.gloss .lead { display: block; font-size: 15.5pt; margin-bottom: 3pt; }
