@@ -61,7 +61,7 @@ Plan a small step, build it, check it, land it, learn, repeat: progress is itera
 
 ## 4. Refinement: how knowledge improves [every principle]
 
-Any body of knowledge, these instructions first, iterates too: one body, tested by evidence. Two acts drive it, unprompted: introspect and unify. For the instructions, Chief proposes and the `refine` skill is the procedure.
+Any body of knowledge, these instructions first, iterates too: one body, tested by evidence. Refinement runs unprompted, as two steps: introspect and unify. For the instructions, Chief proposes and the `refine` skill is the procedure.
 
 1. **Introspect** unprompted before calling any work done, and whenever work comes to a stop: test it, and all it leaves behind, as you would test others', against every principle. Fix each shortfall and name it in the fix's `Anomaly:` trailer.
 2. **Classify** it: a misapplied rule gets a check, a wrong or missing rule is refined, and a misfit principle or premise goes to the founder.
@@ -104,7 +104,7 @@ A role may be held by a person or an agent.
 
 ## Dispatch
 
-How work reaches sessions across our machines (boxes); the `fleet` skill holds how to operate them.
+How work reaches sessions across our boxes; the `fleet` skill holds how to operate them.
 
 4. **The session is the unit of work:** one project per session, a colleague given its objective and bar in one piece, not a worker gated step by step.
 5. **Boxes are interchangeable:** everything a session needs is in its repo and the installed instructions, so any box can resume it, and a dead box means relocate, never wait.
@@ -133,11 +133,11 @@ The steps of Iteration, from plan to `main`.
 
 ## Records
 
-**What Chief writes down: only what a session must not lose.** Records are live state in `records/`, synced with the repo; they change as work moves, unlike history, which is the permanent evidence. Everything else is re-probed at the moment of use. The `state` skill holds the details.
+**What Chief writes down: only what a session must not lose.** Records are live state in `records/`, synced with the repo; they change as work moves, unlike history, which is the permanent evidence. Everything else is re-probed at the moment of use. The `records` skill holds the details.
 
 19. **Three records, each answering one question, and nothing else:**
     1. **The work list (`records/WORK_LIST.md`):** what Chief is doing, each dispatch included, and the only part of a session that survives it ending. Read it at session start and before each step; each row is `next`, `in flight`, `blocked-on(<named>)` or `done`.
-    2. **Approvals (`records/approvals/`):** what the founder has approved and still binds. That means the machines and what each may run (`machines.md`, never an address, key or configuration; a dead machine stays, marked retired), and the live rulings.
+    2. **Approvals (`records/approvals/`):** what the founder has approved and still binds. That means the boxes and what each may run (`boxes.md`, never an address, key or configuration; a dead box stays, marked retired), and the live approvals.
     3. **The planner (`planner.md`, in the synced vault):** the founder's day, co-written, so the founder's check-offs win.
     4. **Where projects run** is not a record: it is the fleet tool's configuration, read with its `map` command, current by construction and outranking any record.
 20. **Written when work starts, never when it returns,** so work that never returns still leaves its row.

@@ -10,7 +10,7 @@ RE_HARD='^[^#]*(mapfile |readarray |declare -A|asorti\(|asort\(|gensub\()'
 RE_SOFT='^[^#]*(date -I|date -d |touch -d |stat -c |sed -i |grep -P |xargs -r )'
 RE_TIMELESS='([Pp]roven|[Vv]erified)( 20[0-9][0-9]-|:| twice| three times| repeatedly| once| the day| in one)|\([Pp]roven[ ---]'
 
-# Each gate is tested through the same expression it uses. The seed lock and review gate get end-to-end arms in throwaway repos.
+# Each gate is tested through the same expression it uses. The AGENTS.md lock and review gate get end-to-end arms in throwaway repos.
 if [ "$1" = "--selftest" ]; then
   n=0; x=""      # empty: the fixtures below read as the literal, without BEING it in this file
   t() { # t <name> <pattern> <must-match> <must-not-match>
@@ -22,24 +22,24 @@ if [ "$1" = "--selftest" ]; then
   t portability-hard "$RE_HARD" "  map${x}file -t x < f" "# map${x}file is banned here"
   t portability-soft "$RE_SOFT" "  date${x} -d yesterday" "# date -d needs a fallback"
   t timeless   "$RE_TIMELESS" 'Proven 2026-01-01 on one box' 'a proven `ready` session'
-  # The seed lock, end to end. Both arms read the guard's own message, never the exit code: an un-allowlisted remote also exits 1.
+  # The AGENTS.md lock, end to end. Both arms read the guard's own message, never the exit code: an un-allowlisted remote also exits 1.
   d=$(mktemp -d) || { echo "FAIL setup: no temp dir"; exit 1; }
   ( cd "$d" && git init -q . && git config user.email t@t && git config user.name t \
     && cp "$PWD_HOOK" .git/hook && echo seed > AGENTS.md && git add . \
     && git commit -qm "unratified seed edit" ) >/dev/null 2>&1
   out=$( cd "$d" && sh .git/hook origin https://example.invalid/x.git 2>&1 </dev/null )
-  if printf '%s\n' "$out" | grep -q 'seed guard'; then
-    echo "SELFTEST PASS: an unratified AGENTS.md commit is refused BY THE SEED GUARD"
+  if printf '%s\n' "$out" | grep -q 'AGENTS.md guard'; then
+    echo "SELFTEST PASS: an unratified AGENTS.md commit is refused BY THE AGENTS.md GUARD"
   else
-    echo "FAIL seed-lock: an unratified AGENTS.md commit did not trip the seed guard"; n=1
+    echo "FAIL agents-lock: an unratified AGENTS.md commit did not trip the AGENTS.md guard"; n=1
   fi
   rm -rf "$d"
   # The landing range, end to end: real push tuples. A passing arm reaches the allowlist message with no guard message before it.
   zero=0000000000000000000000000000000000000000
   d=$(mktemp -d) || { echo "FAIL setup: no temp dir"; exit 1; }
   ( cd "$d" && git init -q --bare r.git && git init -q w && cd w && git config user.email t@t \
-    && git config user.name t && cp "$PWD_HOOK" .git/hook && mkdir -p .claude \
-    && touch .claude/institution-manifest.txt && echo base > note && git add . && git commit -qm base \
+    && git config user.name t && cp "$PWD_HOOK" .git/hook && mkdir -p .agents \
+    && touch .agents/toolkit-manifest.txt && echo base > note && git add . && git commit -qm base \
     && git remote add origin ../r.git && git push -q origin HEAD:main && git fetch -q origin ) >/dev/null 2>&1
   base=$( cd "$d/w" && git rev-parse HEAD )
   ( cd "$d/w" && git checkout -q -b cand && mkdir -p .agents/skills/x && echo step > .agents/skills/x/SKILL.md \
@@ -52,7 +52,7 @@ if [ "$1" = "--selftest" ]; then
     else echo "FAIL $1: wanted '$3' without '$4', got: $2"; n=1; fi
   }
   out=$(feed "refs/heads/cand $cand refs/heads/review $zero")
-  arm "an unreviewed toolkit commit pushed to a review branch passes" "$out" 'not an allowlisted' 'guard: chief\|review guard\|seed guard'
+  arm "an unreviewed toolkit commit pushed to a review branch passes" "$out" 'not an allowlisted' 'guard: chief\|review guard\|AGENTS.md guard'
   ( cd "$d/w" && git push -q origin "$cand:refs/heads/review" && git fetch -q origin ) >/dev/null 2>&1
   out=$(feed "refs/heads/cand $cand refs/heads/main $base")
   arm "the same commit pushed to main after the review branch is refused" "$out" 'review guard' 'not an allowlisted'
@@ -79,17 +79,17 @@ if [ "$1" = "--selftest" ]; then
 FOUNDER-RATIFIED: "go ahead"' ) >/dev/null 2>&1
   rev=$( cd "$d/w" && git rev-parse HEAD )
   out=$(feed "refs/heads/clean $rev refs/heads/main $base")
-  arm "a ratified AGENTS.md commit pushed to main passes" "$out" 'not an allowlisted' 'review guard\|seed guard'
+  arm "a ratified AGENTS.md commit pushed to main passes" "$out" 'not an allowlisted' 'review guard\|AGENTS.md guard'
   ( cd "$d/w" && git commit -q --amend -m 'seed edit' ) >/dev/null 2>&1
   rev=$( cd "$d/w" && git rev-parse HEAD )
   out=$(feed "refs/heads/clean $rev refs/heads/main $base")
-  arm "an unratified AGENTS.md commit pushed to main is refused" "$out" 'seed guard' 'not an allowlisted'
+  arm "an unratified AGENTS.md commit pushed to main is refused" "$out" 'AGENTS.md guard' 'not an allowlisted'
   rm -rf "$d"
   # The net change, end to end: each arm commits on a branch from a chief main and feeds its push onto main.
   d=$(mktemp -d) || { echo "FAIL setup: no temp dir"; exit 1; }
   ( cd "$d" && git init -q --bare r.git && git init -q w && cd w && git config user.email t@t \
-    && git config user.name t && cp "$PWD_HOOK" .git/hook && mkdir -p .claude .agents/skills/x docs \
-    && touch .claude/institution-manifest.txt && echo v1 > .agents/skills/x/SKILL.md && echo seed > AGENTS.md \
+    && git config user.name t && cp "$PWD_HOOK" .git/hook && mkdir -p .agents .agents/skills/x docs \
+    && touch .agents/toolkit-manifest.txt && echo v1 > .agents/skills/x/SKILL.md && echo seed > AGENTS.md \
     && git add . && git commit -qm base && git remote add origin ../r.git && git push -q origin HEAD:main \
     && git fetch -q origin ) >/dev/null 2>&1
   base=$( cd "$d/w" && git rev-parse HEAD )
@@ -102,7 +102,7 @@ FOUNDER-RATIFIED: "go ahead"' ) >/dev/null 2>&1
   br main 2>/dev/null; ( cd "$d/w" && git checkout -q -b mvseed "$base" && git mv AGENTS.md instructions.md \
     && git commit -qm "move seed" ) >/dev/null 2>&1
   out=$(feed "refs/heads/mvseed $(land) refs/heads/main $base")
-  arm "AGENTS.md moved away without ratification is refused" "$out" 'seed guard' 'not an allowlisted'
+  arm "AGENTS.md moved away without ratification is refused" "$out" 'AGENTS.md guard' 'not an allowlisted'
   ( cd "$d/w" && git checkout -q -b rollback "$base" && echo v2 > .agents/skills/x/SKILL.md \
     && git commit -qam "v2
 
@@ -111,7 +111,7 @@ Reviewed-by: review seat example" && git checkout -q -b side "$base" && echo n >
   v2=$( cd "$d/w" && git rev-parse rollback )
   out=$(feed "refs/heads/side $(land) refs/heads/main $v2")
   arm "a merge whose second parent restores old toolkit content is refused" "$out" 'review guard' 'not an allowlisted'
-  ( cd "$d/w" && git checkout -q -b nomanifest "$base" && git rm -q .claude/institution-manifest.txt \
+  ( cd "$d/w" && git checkout -q -b nomanifest "$base" && git rm -q .agents/toolkit-manifest.txt \
     && echo v3 > .agents/skills/x/SKILL.md && git add . && git commit -qm "drop manifest" ) >/dev/null 2>&1
   out=$(feed "refs/heads/nomanifest $(land) refs/heads/main $base")
   arm "deleting the manifest with an unreviewed toolkit edit is refused" "$out" 'review guard' 'not an allowlisted'
@@ -124,7 +124,7 @@ Reviewed-by: review seat example" && git checkout -q -b side "$base" && echo n >
 
 Reviewed-by: review seat example" ) >/dev/null 2>&1
   out=$(feed "refs/heads/range $(land) refs/heads/main $base")
-  arm "a reviewed landing commit carrying a multi-commit range passes" "$out" 'not an allowlisted' 'review guard\|seed guard'
+  arm "a reviewed landing commit carrying a multi-commit range passes" "$out" 'not an allowlisted' 'review guard\|AGENTS.md guard'
   lm=$(git -C "$d/w" rev-parse mvskill)
   ( cd "$d/w" && git replace mvskill "$base" ) >/dev/null 2>&1
   out=$(feed "refs/heads/mvskill $lm refs/heads/main $base")
@@ -134,7 +134,7 @@ Reviewed-by: review seat example" ) >/dev/null 2>&1
   printf '#!/bin/sh\ncase " $* " in *" ls-tree "*) exit 128 ;; esac\nexec %s "$@"\n' "$real" > "$d/bin2/git"; chmod +x "$d/bin2/git"
   out=$( cd "$d/w" && printf '%s\n' "refs/heads/mvskill $lm refs/heads/main $base" | PATH="$d/bin2:$PATH" sh .git/hook origin https://example.invalid/x.git 2>&1 )
   arm "a failed scope lookup is refused, not read as not-a-chief-repo" "$out" 'could not read the tree' 'not an allowlisted'
-  mb=$( cd "$d/w" && git rev-parse "$base:.claude/institution-manifest.txt" ); rm -f "$d/w/.git/objects/$(printf %s "$mb" | cut -c1-2)/$(printf %s "$mb" | cut -c3-)"
+  mb=$( cd "$d/w" && git rev-parse "$base:.agents/toolkit-manifest.txt" ); rm -f "$d/w/.git/objects/$(printf %s "$mb" | cut -c1-2)/$(printf %s "$mb" | cut -c3-)"
   out=$(feed "refs/heads/mvskill $lm refs/heads/main $base")
   arm "a missing manifest blob still refuses an unreviewed toolkit change" "$out" 'review guard' 'not an allowlisted'
   rm -rf "$d"
@@ -269,10 +269,10 @@ fi
 remote_url="$2"
 [ -z "$remote_url" ] && remote_url="$1"   # fall back to the remote name / bare URL
 
-# Seed lock: a commit touching AGENTS.md needs FOUNDER-RATIFIED in its message, and a toolkit change needs Reviewed-by.
+# AGENTS.md lock: a commit touching AGENTS.md needs FOUNDER-RATIFIED in its message, and a toolkit change needs Reviewed-by.
 # Both read the net change of each push tuple, and any failing git call refuses (a guard that fails open is not a lock).
 # Threat model: this stops accidental unreviewed or unratified landings; deliberate bypass (--no-verify, removing objects) is out of scope.
-seed_guard() {
+agents_guard() {
   local line rev found lsha rref rsha zero empty base files chief msg trailers
   zero=0000000000000000000000000000000000000000
   empty=4b825dc642cb6eb9a060e54bf8d69288fbee4904
@@ -283,7 +283,7 @@ seed_guard() {
   # call that fails. The landing commit carries the trailer for the whole range.
   [ -t 0 ] || PUSHED=$(cat)
   if [ -z "$PUSHED" ]; then
-    lsha=$(git rev-parse HEAD 2>/dev/null) || { echo "chief seed guard: could not read HEAD — refusing rather than guessing" >&2; return 1; }
+    lsha=$(git rev-parse HEAD 2>/dev/null) || { echo "chief AGENTS.md guard: could not read HEAD — refusing rather than guessing" >&2; return 1; }
     rsha=$(git rev-parse -q --verify refs/remotes/origin/main 2>/dev/null) || rsha=$zero
     PUSHED="HEAD $lsha refs/heads/main $rsha"
   fi
@@ -291,52 +291,52 @@ seed_guard() {
     [ -n "$line" ] || continue
     set -- $line
     if [ "$#" -ne 4 ] || ! printf '%s' "$2" | grep -Eq '^[0-9a-f]{40}$' || ! printf '%s' "$4" | grep -Eq '^[0-9a-f]{40}$'; then
-      echo "chief seed guard: malformed push tuple '$line' — refusing rather than guessing" >&2; return 1
+      echo "chief AGENTS.md guard: malformed push tuple '$line' — refusing rather than guessing" >&2; return 1
     fi
     lsha=$2 rref=$3 rsha=$4
     case "$rref" in
       refs/heads/main) ;;
       refs/heads/*) continue ;;
-      refs/*) echo "chief seed guard: unknown remote ref '$rref' — only a branch other than main may skip the guards" >&2; return 1 ;;
-      *) echo "chief seed guard: malformed push tuple '$line' — refusing rather than guessing" >&2; return 1 ;;
+      refs/*) echo "chief AGENTS.md guard: unknown remote ref '$rref' — only a branch other than main may skip the guards" >&2; return 1 ;;
+      *) echo "chief AGENTS.md guard: malformed push tuple '$line' — refusing rather than guessing" >&2; return 1 ;;
     esac
     if [ "$lsha" = "$zero" ]; then
-      echo "chief seed guard: this push deletes main — refusing" >&2; return 1
+      echo "chief AGENTS.md guard: this push deletes main — refusing" >&2; return 1
     fi
     base=$rsha; [ "$rsha" = "$zero" ] && base=$empty
     # --no-renames: a move shows as a delete of the old path, so it cannot hide a protected file.
     files=$(git -c core.quotePath=false diff --no-renames --name-only "$base" "$lsha" 2>/dev/null) || {
-      echo "chief seed guard: could not list the files this push changes — refusing rather than guessing" >&2; return 1; }
+      echo "chief AGENTS.md guard: could not list the files this push changes — refusing rather than guessing" >&2; return 1; }
     # A chief repo is one whose advertised main or candidate carries the manifest, so deleting the
     # manifest or pushing from a checkout without it does not switch the review off.
     chief=""
     for rev in "$lsha" "$rsha"; do
       [ "$rev" = "$zero" ] && continue
-      found=$(git ls-tree --name-only "$rev" -- .claude/institution-manifest.txt 2>/dev/null) || {
-        echo "chief seed guard: could not read the tree of $rev — refusing rather than guessing" >&2; return 1; }
+      found=$(git ls-tree --name-only "$rev" -- .agents/toolkit-manifest.txt 2>/dev/null) || {
+        echo "chief AGENTS.md guard: could not read the tree of $rev — refusing rather than guessing" >&2; return 1; }
       [ -n "$found" ] && chief=1
     done
     msg=$(git log -1 --format=%B "$lsha" 2>/dev/null) && trailers=$(printf '%s\n' "$msg" | git interpret-trailers --parse 2>/dev/null) || {
-      echo "chief seed guard: could not read the landing commit — refusing rather than guessing" >&2; return 1; }
+      echo "chief AGENTS.md guard: could not read the landing commit — refusing rather than guessing" >&2; return 1; }
     # Chief's toolkit changes only with a review, as any work does (AGENTS Delivery 14): the landing
     # commit names the review that cleared the range in a parsed trailer.
-    if [ -n "$chief" ] && printf '%s\n' "$files" | grep -qE '^"?(\.agents/|\.githooks/|install\.sh$|\.claude/agents/|\.claude/institution-manifest\.txt$)' \
+    if [ -n "$chief" ] && printf '%s\n' "$files" | grep -qE '^"?(\.agents/|\.githooks/|install\.sh$|\.claude/agents/)' \
        && ! printf '%s\n' "$trailers" | grep -qE '^Reviewed-by: *[^ ]'; then
       echo "chief review guard: the push to main changes the toolkit and its landing commit $(git log -1 --format=%h\ %s "$lsha") has no Reviewed-by: trailer naming the review that cleared it (AGENTS Delivery 14)" >&2
       return 1
     fi
     printf '%s\n' "$files" | grep -qx 'AGENTS.md' || continue
     printf '%s\n' "$trailers" | grep -qE '^FOUNDER-RATIFIED: *[^ ]' && continue
-    cat >&2 <<SEEDEOF
+    cat >&2 <<GUARDEOF
 
-chief seed guard: the push to main changes AGENTS.md and its landing commit $(git log -1 --format=%h\ %s "$lsha") lacks the ratification.
-   The seed is LOCKED. If the founder approved it, add a trailer to the landing commit, quoting them:
+chief AGENTS.md guard: the push to main changes AGENTS.md and its landing commit $(git log -1 --format=%h\ %s "$lsha") lacks the ratification.
+   AGENTS.md is LOCKED. If the founder approved it, add a trailer to the landing commit, quoting them:
 
        FOUNDER-RATIFIED: "<their words>"
 
    If not, put the change in a skill instead: a skill improves through a reviewed commit.
 
-SEEDEOF
+GUARDEOF
     return 1
   done <<PUSHEOF
 $PUSHED
@@ -379,8 +379,8 @@ PUSHEOF
     return 0
 }
 
-# The seed guard runs before the allowlist exit, or a trusted remote would never reach it.
-seed_guard || exit 1
+# The AGENTS.md guard runs before the allowlist exit, or a trusted remote would never reach it.
+agents_guard || exit 1
 selftest_gate || exit 1
 
 if git config --get-all chief.allowedRemote | grep -Fxq "$remote_url"; then

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Install the skills, agents and global rules onto this machine, then prove they landed.
+# Install the skills, agents and global rules onto this box, then prove they landed.
 #
 #   ./install.sh                  install, then verify
 #   ./install.sh --check          verify only, change nothing
@@ -8,11 +8,11 @@
 # 1. Skills (.agents/skills) and agents (.claude/agents) are copied to ~/.claude so every repo
 #    sees them, and to ~/.agents/skills and ~/.codex/agents for Codex (agents as TOML).
 # 2. The shipping set is enumerated from git, never hand-listed, so a skill added later ships.
-# 3. The reference is the committed manifest (.claude/institution-manifest.txt), not the working
+# 3. The reference is the committed manifest (.agents/toolkit-manifest.txt), not the working
 #    tree: comparing the tree to its own copy has no floor.
 # 4. ~/.claude/PRINCIPLES.md and the Codex global are generated from AGENTS.md.
 # 5. The push guard (.githooks) is wired by setting core.hooksPath.
-# 6. Each instruction file stays under its word ceiling in .claude/rule-budget.
+# 6. Each instruction file stays under its word ceiling in .agents/rule-budget.
 # 7. The refine hook (refine/refine.sh) is wired as a quiet PostToolUse hook in Claude and Codex.
 
 set -uo pipefail
@@ -22,9 +22,9 @@ if ! command -v sha256sum >/dev/null 2>&1 && command -v shasum >/dev/null 2>&1; 
 fi
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 DEST="${DEST:-$HOME/.claude}"
-MANIFEST="$ROOT/.claude/institution-manifest.txt"
-BACKUP="$DEST/.institution-backup"
-MARKER="$DEST/.institution-installed"
+MANIFEST="$ROOT/.agents/toolkit-manifest.txt"
+BACKUP="$DEST/.toolkit-backup"
+MARKER="$DEST/.toolkit-installed"
 # Codex reads the same skills from ~/.agents/skills and its agents as TOML from ~/.codex/agents, derived on every install.
 CODEX_SKILLS="${CODEX_SKILLS:-$HOME/.agents/skills}"
 CODEX_AGENTS="${CODEX_AGENTS:-$HOME/.codex/agents}"
@@ -95,7 +95,7 @@ preserve() {
     rel="${path#"$DEST/"}"
     mkdir -p "$BACKUP/$(dirname "$rel")" || return 1
     [ -e "$BACKUP/$rel" ] && return 0
-    mv "$path" "$BACKUP/$rel" && echo "kept your existing $rel as .institution-backup/$rel"
+    mv "$path" "$BACKUP/$rel" && echo "kept your existing $rel as .toolkit-backup/$rel"
 }
 
 # A Claude agent file as a Codex agent: its name and description, and its body as the
@@ -111,7 +111,37 @@ codex_agent() {
          END {print "\"\"\""}' "$1"
 }
 
+# Box-local files moved from .claude/ to .agents/local/ (neutral to both providers): moved only where the new name is absent, never overwritten.
+migrate_local() {
+    local f
+    for f in intel-sources.md seen-urls.txt secrets.env; do
+        [ -e "$ROOT/.claude/$f" ] || continue
+        [ ! -e "$ROOT/.agents/local/$f" ] || { echo "NOTE: .claude/$f and .agents/local/$f both exist; keeping both, merge by hand"; continue; }
+        mkdir -p "$ROOT/.agents/local" && mv "$ROOT/.claude/$f" "$ROOT/.agents/local/$f" && echo "moved .claude/$f to .agents/local/$f"
+    done
+}
+
+# The marker and backup were named for "the institution"; each moves once, only where the new name is absent. This runs before
+# preserve, which reads the marker: a missed move would read as a first install and set our skills aside.
+migrate_names() {
+    [ ! -e "$DEST/.institution-installed" ] || [ -e "$MARKER" ] || mv "$DEST/.institution-installed" "$MARKER"
+    [ ! -e "$DEST/.institution-backup" ] || [ -e "$BACKUP" ] || mv "$DEST/.institution-backup" "$BACKUP"
+}
+
+# rsync --files-from never deletes, so a file renamed or removed in the repo would stay installed (and load): remove every
+# installed file of a skill that the repo no longer tracks. Only files under a skill we ship, only ones git does not list.
+prune() {  # <installed skill dir> <tracked list>
+    local f
+    ( cd "$1" && find . -type f | sed 's|^\./||' | sort ) | comm -23 - <(sort "$2") | while IFS= read -r f; do
+        rm -f -- "$1/$f" && echo "removed stale $1/$f"
+    done
+    find "$1" -type d -empty -delete 2>/dev/null
+    return 0
+}
+
 install_files() {
+    migrate_local
+    mkdir -p "$DEST" && migrate_names
     mkdir -p "$DEST/skills" "$DEST/agents" "$CODEX_SKILLS" "$CODEX_AGENTS" || return 1
     local path tracked_list
     tracked_list=$(mktemp) || return 1
@@ -120,19 +150,34 @@ install_files() {
         preserve "$DEST/skills/$(basename "$path")"
         # No trailing slash on the source; a trailing slash on the destination keeps a one-file skill a directory. Only what git tracks ships.
         git -C "$ROOT" ls-files -- "$path" | sed "s|^$path/||" > "$tracked_list" || return 1
-        rsync -a --delete --files-from="$tracked_list" "$ROOT/$path" "$DEST/skills/$(basename "$path")/" || return 1
-        rsync -a --delete --files-from="$tracked_list" "$ROOT/$path" "$CODEX_SKILLS/$(basename "$path")/" || return 1
+        rsync -a --files-from="$tracked_list" "$ROOT/$path" "$DEST/skills/$(basename "$path")/" || return 1
+        rsync -a --files-from="$tracked_list" "$ROOT/$path" "$CODEX_SKILLS/$(basename "$path")/" || return 1
+        prune "$DEST/skills/$(basename "$path")" "$tracked_list" && prune "$CODEX_SKILLS/$(basename "$path")" "$tracked_list" || return 1
     done
     for path in $(agent_files); do
         preserve "$DEST/agents/$(basename "$path")"
         rsync -a "$ROOT/$path" "$DEST/agents/" || return 1
         put "$CODEX_AGENTS/$(basename "$path" .md).toml" codex_agent "$ROOT/$path" || return 1
     done
+    retired_agents | while IFS= read -r dir; do rm -f -- "$DEST/agents/$dir.md" "$CODEX_AGENTS/$dir.toml" && echo "removed retired agent $dir"; done
     # A retired skill's copy keeps loading until removed; one that cannot be removed stays in the record so --check keeps failing.
     local dir
     retired_skills | while IFS= read -r dir; do rm -rf -- "$dir" && echo "removed retired skill $dir"; done
     { current_skills; retired_skills | while IFS= read -r dir; do basename "$dir"; done; } \
         | sort -u > "$MARKER.tmp" && mv "$MARKER.tmp" "$MARKER"
+}
+
+# Installed agents this repo once shipped under a name it no longer has (an installed copy still loads): the name when the
+# installed file is byte-identical to a version git tracked, so an agent from another installer is never touched.
+retired_agents() {
+    local f name blobs
+    git -C "$ROOT" log --no-renames --diff-filter=D --name-only --format= -- .claude/agents 2>/dev/null | sort -u | while read -r f; do
+        name=$(basename "$f" .md)
+        agent_files | grep -qxF -- "$f" && continue
+        [ -f "$DEST/agents/$name.md" ] || continue
+        blobs=$(git -C "$ROOT" log --no-renames --format= --raw --no-abbrev -- "$f" | awk '{print $3; print $4}')
+        printf '%s\n' "$blobs" | grep -qxF -- "$(git hash-object "$DEST/agents/$name.md")" && echo "$name"
+    done
 }
 
 current_skills() { for path in $(skill_dirs); do basename "$path"; done | sort -u; }
@@ -240,7 +285,7 @@ wire_hooks() {
     fi
 }
 
-# THE REFINE HOOK (Method section 4, Refinement) is a PostToolUse hook in both providers, matched to the hand-over tools. Claude lists it in
+# THE REFINE HOOK (Method section 4, Refinement) is a PostToolUse hook in both providers, matched to the handover tools. Claude lists it in
 # settings.json; Codex lists it in hooks.json and runs only hooks it has trusted, by a hash only Codex computes, so the install
 # records the hash Codex reports in its config.toml. --check: present, synchronous, matched, timed, not disabled, trusted, and no
 # no entry left under the hook's old name introspect.sh, under any event. Limit: project settings can still switch hooks off; --check certifies only what the install controls.
@@ -312,10 +357,10 @@ wire_hooks_refine() {
         [ "$trust" = trusted ] && [ "$enabled" = True ] && [ "$async" = False ] \
             || { echo "REFINE HOOK NOT RUNNING IN CODEX: trust ${trust:-unknown}, enabled ${enabled:-unknown}, async ${async:-unknown} — install to trust it, or review it in Codex if it says modified"; return 1; }
     else echo "NOT CHECKED: no codex here, so its hook trust is unverified"; fi
-    echo "the refine hook runs after hand-over tools in Claude ($DEST/settings.json) and Codex ($CODEX_HOOKS)"
+    echo "the refine hook runs after handover tools in Claude ($DEST/settings.json) and Codex ($CODEX_HOOKS)"
 }
 
-# The global house rules are generated from AGENTS.md, the one hand-edited source: its core becomes ~/.claude/PRINCIPLES.md and the Codex global.
+# The global core is generated from AGENTS.md, the one hand-edited source: it becomes ~/.claude/PRINCIPLES.md and the Codex global.
 section() { awk -v h="# $1" '$0==h {on=1} on && /^---$/ {exit} on' "$ROOT/AGENTS.md"; }
 GENERATED_NOTE="<!-- GENERATED by install.sh from AGENTS.md. Do not edit. -->"
 CODEX_GLOBAL="${CODEX_GLOBAL:-$HOME/.codex/AGENTS.md}"
@@ -358,9 +403,9 @@ verify_globals() {
     return "$fail"
 }
 
-# The rule budget: each instruction file's word ceiling (.claude/rule-budget). Growth past it fails here, so adding a rule means cutting or merging one.
+# The rule budget: each instruction file's word ceiling (.agents/rule-budget). Growth past it fails here, so adding a rule means cutting or merging one.
 check_rule_budget() {
-    local budget="$ROOT/.claude/rule-budget" fail=0 path max n
+    local budget="$ROOT/.agents/rule-budget" fail=0 path max n
     [ -f "$budget" ] || { echo "RULE BUDGET MISSING: $budget"; return 1; }
     while read -r path max _; do
         case "$path" in ''|'#'*) continue ;; esac

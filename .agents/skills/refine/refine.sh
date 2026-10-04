@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# PostToolUse hook for Claude and Codex (Method section 4): after a hand-over action it adds one sentence of context for the
-# model: refine it, and report only what was found or changed. A hand-over is a shell command containing git commit, push, merge or
+# PostToolUse hook for Claude and Codex (Method section 4): after a handover action it adds one sentence of context for the
+# model: refine it, and report only what was found or changed. A handover is a shell command containing git commit, push, merge or
 # rebase or a fleet tool send or goal, or a message to another session. It never blocks, shows the user nothing, keeps no
 # state, and reads no Git, files or network. Any error of its own allows silently.
 # refine.sh --selftest   runs seeded controls, each shown failing against a neutered copy.

@@ -1,5 +1,5 @@
 <!--
-The feed list brief-runner reads. Copy this to intel-sources.md, which is gitignored, and
+The feed list planner-runner reads. Copy this to .agents/local/intel-sources.md, which is gitignored, and
 edit it there: why you read a source is about your own work and belongs outside the repo.
 -->
 

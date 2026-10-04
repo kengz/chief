@@ -1,6 +1,6 @@
 ---
 name: fleet
-description: Running a fleet of persistent coding-agent sessions across machines through one adapter tool — dispatch and its exit codes, a quiet or stuck box, a send that vanished, a login failure, standing a new box up to parity.
+description: Running a fleet of persistent coding-agent sessions across boxes through one adapter tool — dispatch and its exit codes, a quiet or stuck box, a send that vanished, a login failure, standing a new box up to parity.
 ---
 
 # Fleet
@@ -79,5 +79,5 @@ The tool is yours to choose. This skill assumes it offers the verbs below; renam
 14. Stand it up to parity with the others:
     1. install the agent CLIs and sign in as the founder;
     2. clone this repo and run `./install.sh`, then `./install.sh --check`;
-    3. add it to the fleet tool's configuration and to `records/approvals/machines.md` (purpose and scope, never an address);
+    3. add it to the fleet tool's configuration and to `records/approvals/boxes.md` (purpose and scope, never an address);
     4. start a session with `up <box>` and read it before trusting it.

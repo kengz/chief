@@ -15,11 +15,10 @@
 !/projects/example/
 !/projects/example/status.md
 
-# Machine-local files and runtime state stay out of git.
-.claude/secrets.env
+# Box-local files and runtime state stay out of git. .agents/local/ holds what is about your own work, not procedure:
+# the intel feed list, the seen-URL list and secrets. Examples ship beside the files that read them.
+.agents/local/
 .claude/settings.local.json
-.claude/seen-urls.txt
-.claude/intel-sources.md
 .claude/scheduled_tasks.*
 .claude/worktrees/
 .claude/projects/
