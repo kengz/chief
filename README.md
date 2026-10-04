@@ -17,24 +17,25 @@ You are the founder. Chief is a long-running session that holds the purpose of e
     1. `fleet`: driving persistent sessions across machines.
     2. `state`: the records and the daily brief.
     3. `lead-role`: what a project's lead session owns, plus a deck kit for progress decks.
-    4. `refine-instructions`: measuring the work and improving the rules from evidence.
+    4. `refine-instructions`: measuring the work and improving the rules from evidence; its `introspect.sh` is the quiet hook that, after a hand-over, asks a session to introspect and unify.
 4. **Agents** in `.claude/agents/`: `engineer`, `verifier`, `challenger` and `brief-runner`.
 5. **Records** in `records/`: the work list and the approvals. `planner.md` and `projects/` are small templates for the founder's day and project cards.
 6. **Guards** in `.githooks/`:
     1. `commit-msg` requires a fix commit to name its anomaly.
-    2. `pre-push` refuses conflict markers, GNU-only shell constructs, dated incident history in skills, unratified edits to `AGENTS.md`, and unlisted remotes.
+    2. `pre-push` refuses conflict markers, GNU-only shell constructs, dated incident history in skills, unratified edits to `AGENTS.md`, toolkit changes without a `Reviewed-by:` trailer, a changed toolkit script whose own `--selftest` fails, and unlisted remotes.
 
 ## Install
 
 You need `git`, `rsync`, `find`, `cmp`, `sha256sum` (or `shasum`) and `bash`.
 
 1. Clone it: `git clone https://github.com/kengz/chief.git && cd chief`
-2. Run `./install.sh`. It does five things:
+2. Run `./install.sh`. It does six things:
     1. copies the skills and agents to `~/.claude` and to `~/.agents` and `~/.codex` for Codex;
     2. writes `~/.claude/PRINCIPLES.md` from `AGENTS.md`, and a global `~/.claude/CLAUDE.md` that imports it;
     3. sets `core.hooksPath` to `.githooks` so the guards run;
     4. checks every file against `.claude/institution-manifest.txt`;
-    5. checks each instruction file against its word ceiling in `.claude/rule-budget`.
+    5. checks each instruction file against its word ceiling in `.claude/rule-budget`;
+    6. wires the introspection hook (a quiet PostToolUse hook after hand-overs) in Claude and Codex.
 3. Prove it with `./install.sh --check`. It changes nothing and exits 0 only when everything matches.
 4. Open Claude Code in this folder. The session is Chief.
 

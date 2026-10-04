@@ -24,9 +24,9 @@ Per-record details:
 
 ## The daily brief
 
-[`brief-runner`](../../../.claude/agents/brief-runner.md) writes the planner. The procedure is the runner's; these are the caller's.
+[`brief-runner`](../../../.claude/agents/brief-runner.md) writes the planner. It runs when a Chief session starts its day, never from a timer (Dispatch rule 9). The caller's rules:
 
-1. **Never run it as a `/goal`.** A goal installs a stop hook, and a recurring chore that takes over the session's stop condition outranks whatever task was actually running.
+1. **Never run it as a `/goal`:** a recurring chore must not take over the session's stop condition.
 2. Launch it in the background, do not block, and relay it in the runner's order, glance sections only.
 3. Act on intel, never relay it: dispatch what is material to the project it touches, in this turn.
 4. If the sweep collides with the founder's own check-off, the founder's `[x]` wins. Bump the frontmatter `updated` stamp in one atomic edit and let it re-upload.
@@ -34,4 +34,4 @@ Per-record details:
 
 ## Meters
 
-1. A seat's tokens are recorded below its session, not beside it, so a meter that does not recurse prints a floor: recurse, or call the figure a lower bound.
+1. Consumption is `claude -p "/usage"`.

@@ -1,82 +1,242 @@
 #!/bin/sh
-# Push guard. Enable once per clone: git config core.hooksPath .githooks
-# (./install.sh does this). Run `.githooks/pre-push --selftest` to prove each check fires.
-#
-#   1. no merge-conflict markers in tracked files
-#   2. no GNU-only shell constructs in scripts this push adds (bash 3.2 and BSD must work)
-#   3. no dated incident history in skills (a skill states the current procedure only)
-#   4. AGENTS.md changes carry a FOUNDER-RATIFIED line in the commit message
-#   5. the remote must be allowlisted: git config --add chief.allowedRemote <url>
+GIT_NO_REPLACE_OBJECTS=1; export GIT_NO_REPLACE_OBJECTS   # a replace ref must not change what any guard reads
 PWD_HOOK="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
-
-# Patterns are defined before the self-test: an empty pattern matches every line.
+# Push guard: refuses an untrusted remote (git config --add chief.allowedRemote <url>), conflict markers, GNU-only shell,
+# dated incident text in skills, an unratified AGENTS.md and an unreviewed toolkit change.
+# Enable once per clone: git config core.hooksPath .githooks
+# RE_*: named above the self-test that drives them; an undefined one is empty and matches every line.
 RE_CONFLICT='^(<<<<<<< |=======$|>>>>>>> )'
 RE_HARD='^[^#]*(mapfile |readarray |declare -A|asorti\(|asort\(|gensub\()'
 RE_SOFT='^[^#]*(date -I|date -d |touch -d |stat -c |sed -i |grep -P |xargs -r )'
-RE_TIMELESS='([Pp]roven|[Vv]erified)( 20[0-9][0-9]-|:| twice| three times| repeatedly| once)|\([Pp]roven[ ---]'
+RE_TIMELESS='([Pp]roven|[Vv]erified)( 20[0-9][0-9]-|:| twice| three times| repeatedly| once| the day| in one)|\([Pp]roven[ ---]'
 
+# Each gate is tested through the same expression it uses. The seed lock and review gate get end-to-end arms in throwaway repos.
 if [ "$1" = "--selftest" ]; then
-  n=0; x=""      # empty: fixtures below read as the literal without being it in this file
+  n=0; x=""      # empty: the fixtures below read as the literal, without BEING it in this file
   t() { # t <name> <pattern> <must-match> <must-not-match>
-    printf '%s\n' "$3" | grep -qE "$2" || { echo "FAIL $1: does not catch '$3'"; n=1; }
+    if printf '%s\n' "$3" | grep -qE "$2"; then :; else echo "FAIL $1: does not catch '$3'"; n=1; fi
     if printf '%s\n' "$4" | grep -qE "$2"; then echo "FAIL $1: fires on '$4', which is clean"; n=1
     else echo "SELFTEST PASS: $1 catches its defect and spares the clean line"; fi
   }
-  t conflict "$RE_CONFLICT" '<<<<<<< HEAD' 'a line about <<< nothing'
+  t conflict   "$RE_CONFLICT" '<<<<<<< HEAD'          'a line about <<< nothing'
   t portability-hard "$RE_HARD" "  map${x}file -t x < f" "# map${x}file is banned here"
   t portability-soft "$RE_SOFT" "  date${x} -d yesterday" "# date -d needs a fallback"
-  t timeless "$RE_TIMELESS" 'Proven 2026-01-01 on one box' 'a proven `ready` session'
-  # Seed guard end to end. Both arms read the guard's own message, never the exit code:
-  # the hook also refuses an unlisted remote, so a guard that failed open would still exit 1.
+  t timeless   "$RE_TIMELESS" 'Proven 2026-01-01 on one box' 'a proven `ready` session'
+  # The seed lock, end to end. Both arms read the guard's own message, never the exit code: an un-allowlisted remote also exits 1.
   d=$(mktemp -d) || { echo "FAIL setup: no temp dir"; exit 1; }
   ( cd "$d" && git init -q . && git config user.email t@t && git config user.name t \
     && cp "$PWD_HOOK" .git/hook && echo seed > AGENTS.md && git add . \
-    && git commit -qm "unratified edit" ) >/dev/null 2>&1
-  out=$( cd "$d" && sh .git/hook origin https://example.invalid/x.git 2>&1 )
-  if printf '%s\n' "$out" | grep -q 'seed guard'; then echo "SELFTEST PASS: an unratified AGENTS.md commit is refused by the seed guard"
-  else echo "FAIL seed-lock: an unratified AGENTS.md commit did not trip the seed guard"; n=1; fi
-  ( cd "$d" && git commit -q --amend -m 'edit
-FOUNDER-RATIFIED: "go ahead"' ) >/dev/null 2>&1
-  out=$( cd "$d" && sh .git/hook origin https://example.invalid/x.git 2>&1 )
-  if printf '%s\n' "$out" | grep -q 'seed guard'; then echo "FAIL seed-lock: a ratified commit was refused"; n=1
-  else echo "SELFTEST PASS: a ratified commit passes the seed guard"; fi
+    && git commit -qm "unratified seed edit" ) >/dev/null 2>&1
+  out=$( cd "$d" && sh .git/hook origin https://example.invalid/x.git 2>&1 </dev/null )
+  if printf '%s\n' "$out" | grep -q 'seed guard'; then
+    echo "SELFTEST PASS: an unratified AGENTS.md commit is refused BY THE SEED GUARD"
+  else
+    echo "FAIL seed-lock: an unratified AGENTS.md commit did not trip the seed guard"; n=1
+  fi
   rm -rf "$d"
-  # Portability scope end to end: a GNU-only script already on the remote does not block an
-  # unrelated push, and the same construct in a pushed commit still refuses.
+  # The landing range, end to end: real push tuples. A passing arm reaches the allowlist message with no guard message before it.
+  zero=0000000000000000000000000000000000000000
+  d=$(mktemp -d) || { echo "FAIL setup: no temp dir"; exit 1; }
+  ( cd "$d" && git init -q --bare r.git && git init -q w && cd w && git config user.email t@t \
+    && git config user.name t && cp "$PWD_HOOK" .git/hook && mkdir -p .claude \
+    && touch .claude/institution-manifest.txt && echo base > note && git add . && git commit -qm base \
+    && git remote add origin ../r.git && git push -q origin HEAD:main && git fetch -q origin ) >/dev/null 2>&1
+  base=$( cd "$d/w" && git rev-parse HEAD )
+  ( cd "$d/w" && git checkout -q -b cand && mkdir -p .agents/skills/x && echo step > .agents/skills/x/SKILL.md \
+    && git add . && git commit -qm "unreviewed toolkit" ) >/dev/null 2>&1
+  cand=$( cd "$d/w" && git rev-parse HEAD )
+  ( cd "$d/w" && git checkout -q -b clean "$base" && echo more > note && git add . && git commit -qm clean ) >/dev/null 2>&1
+  feed() { ( cd "$d/w" && printf '%s\n' "$1" | sh .git/hook origin https://example.invalid/x.git 2>&1 ); }
+  arm() { # arm <name> <output> <message that must appear> <message that must not>
+    if printf '%s\n' "$2" | grep -q "$3" && ! printf '%s\n' "$2" | grep -q "$4"; then echo "SELFTEST PASS: $1"
+    else echo "FAIL $1: wanted '$3' without '$4', got: $2"; n=1; fi
+  }
+  out=$(feed "refs/heads/cand $cand refs/heads/review $zero")
+  arm "an unreviewed toolkit commit pushed to a review branch passes" "$out" 'not an allowlisted' 'guard: chief\|review guard\|seed guard'
+  ( cd "$d/w" && git push -q origin "$cand:refs/heads/review" && git fetch -q origin ) >/dev/null 2>&1
+  out=$(feed "refs/heads/cand $cand refs/heads/main $base")
+  arm "the same commit pushed to main after the review branch is refused" "$out" 'review guard' 'not an allowlisted'
+  out=$( cd "$d/w" && git checkout -q clean && printf '%s\n' "refs/heads/cand $cand refs/heads/main $base" | sh .git/hook origin https://example.invalid/x.git 2>&1 )
+  arm "a non-HEAD candidate pushed to main is checked" "$out" 'review guard' 'not an allowlisted'
+  out=$(feed "refs/heads/cand $cand refs/heads/main $zero")
+  arm "a new main with a published unreviewed commit is still refused" "$out" 'review guard' 'not an allowlisted'
+  out=$(feed "unknown")
+  arm "a malformed tuple is refused" "$out" 'malformed push tuple' 'not an allowlisted'
+  out=$(feed "refs/heads/cand notasha refs/heads/main $base")
+  arm "a tuple with a bad sha is refused" "$out" 'malformed push tuple' 'not an allowlisted'
+  out=$(feed "refs/heads/cand $cand refs/tags/v1 $zero")
+  arm "an unknown remote ref is refused" "$out" 'unknown remote ref' 'not an allowlisted'
+  out=$(feed "refs/heads/cand $cand nonsense $base")
+  arm "a remote ref outside refs/ is refused" "$out" 'malformed push tuple' 'not an allowlisted'
+  out=$(feed "(delete) $zero refs/heads/main $base")
+  arm "deleting main is refused" "$out" 'deletes main' 'not an allowlisted'
+  mkdir "$d/bin"; real=$(command -v git)
+  printf '#!/bin/sh\ncase " $* " in *" diff "*) exit 128 ;; esac\nexec %s "$@"\n' "$real" > "$d/bin/git"; chmod +x "$d/bin/git"
+  out=$( cd "$d/w" && printf '%s\n' "refs/heads/cand $cand refs/heads/main $base" | PATH="$d/bin:$PATH" sh .git/hook origin https://example.invalid/x.git 2>&1 )
+  arm "a failed file enumeration is refused" "$out" 'could not list the files' 'not an allowlisted'
+  ( cd "$d/w" && git checkout -q clean && echo seed > AGENTS.md && git add . && git commit -q -m 'seed edit
+
+FOUNDER-RATIFIED: "go ahead"' ) >/dev/null 2>&1
+  rev=$( cd "$d/w" && git rev-parse HEAD )
+  out=$(feed "refs/heads/clean $rev refs/heads/main $base")
+  arm "a ratified AGENTS.md commit pushed to main passes" "$out" 'not an allowlisted' 'review guard\|seed guard'
+  ( cd "$d/w" && git commit -q --amend -m 'seed edit' ) >/dev/null 2>&1
+  rev=$( cd "$d/w" && git rev-parse HEAD )
+  out=$(feed "refs/heads/clean $rev refs/heads/main $base")
+  arm "an unratified AGENTS.md commit pushed to main is refused" "$out" 'seed guard' 'not an allowlisted'
+  rm -rf "$d"
+  # The net change, end to end: each arm commits on a branch from a chief main and feeds its push onto main.
+  d=$(mktemp -d) || { echo "FAIL setup: no temp dir"; exit 1; }
+  ( cd "$d" && git init -q --bare r.git && git init -q w && cd w && git config user.email t@t \
+    && git config user.name t && cp "$PWD_HOOK" .git/hook && mkdir -p .claude .agents/skills/x docs \
+    && touch .claude/institution-manifest.txt && echo v1 > .agents/skills/x/SKILL.md && echo seed > AGENTS.md \
+    && git add . && git commit -qm base && git remote add origin ../r.git && git push -q origin HEAD:main \
+    && git fetch -q origin ) >/dev/null 2>&1
+  base=$( cd "$d/w" && git rev-parse HEAD )
+  land() { ( cd "$d/w" && git rev-parse HEAD ); }
+  br() { ( cd "$d/w" && git checkout -q -f "$1" ) >/dev/null 2>&1; }
+  ( cd "$d/w" && git checkout -q -b mvskill "$base" && git mv .agents/skills/x/SKILL.md docs/moved.md \
+    && git commit -qm "move skill" ) >/dev/null 2>&1
+  out=$(feed "refs/heads/mvskill $(land) refs/heads/main $base")
+  arm "a skill file moved out of .agents is refused" "$out" 'review guard' 'not an allowlisted'
+  br main 2>/dev/null; ( cd "$d/w" && git checkout -q -b mvseed "$base" && git mv AGENTS.md instructions.md \
+    && git commit -qm "move seed" ) >/dev/null 2>&1
+  out=$(feed "refs/heads/mvseed $(land) refs/heads/main $base")
+  arm "AGENTS.md moved away without ratification is refused" "$out" 'seed guard' 'not an allowlisted'
+  ( cd "$d/w" && git checkout -q -b rollback "$base" && echo v2 > .agents/skills/x/SKILL.md \
+    && git commit -qam "v2
+
+Reviewed-by: review seat example" && git checkout -q -b side "$base" && echo n > note \
+    && git add . && git commit -qm side && git merge -q -s ours --no-edit rollback ) >/dev/null 2>&1
+  v2=$( cd "$d/w" && git rev-parse rollback )
+  out=$(feed "refs/heads/side $(land) refs/heads/main $v2")
+  arm "a merge whose second parent restores old toolkit content is refused" "$out" 'review guard' 'not an allowlisted'
+  ( cd "$d/w" && git checkout -q -b nomanifest "$base" && git rm -q .claude/institution-manifest.txt \
+    && echo v3 > .agents/skills/x/SKILL.md && git add . && git commit -qm "drop manifest" ) >/dev/null 2>&1
+  out=$(feed "refs/heads/nomanifest $(land) refs/heads/main $base")
+  arm "deleting the manifest with an unreviewed toolkit edit is refused" "$out" 'review guard' 'not an allowlisted'
+  ( cd "$d/w" && git checkout -q --orphan orphan && git rm -rqf . && mkdir -p .agents/skills/x \
+    && echo v4 > .agents/skills/x/SKILL.md && git add . && git commit -qm orphan ) >/dev/null 2>&1
+  out=$(feed "refs/heads/orphan $(land) refs/heads/main $base")
+  arm "a push from an orphan checkout without the manifest onto a chief main is refused" "$out" 'review guard' 'not an allowlisted'
+  ( cd "$d/w" && git checkout -q -b range "$base" && echo a > .agents/skills/x/SKILL.md && git commit -qam one \
+    && echo b >> .agents/skills/x/SKILL.md && git commit -qam "two
+
+Reviewed-by: review seat example" ) >/dev/null 2>&1
+  out=$(feed "refs/heads/range $(land) refs/heads/main $base")
+  arm "a reviewed landing commit carrying a multi-commit range passes" "$out" 'not an allowlisted' 'review guard\|seed guard'
+  lm=$(git -C "$d/w" rev-parse mvskill)
+  ( cd "$d/w" && git replace mvskill "$base" ) >/dev/null 2>&1
+  out=$(feed "refs/heads/mvskill $lm refs/heads/main $base")
+  arm "a replace ref does not hide a toolkit change" "$out" 'review guard' 'not an allowlisted'
+  ( cd "$d/w" && git replace -d mvskill ) >/dev/null 2>&1
+  mkdir -p "$d/bin2"; real=$(command -v git)
+  printf '#!/bin/sh\ncase " $* " in *" ls-tree "*) exit 128 ;; esac\nexec %s "$@"\n' "$real" > "$d/bin2/git"; chmod +x "$d/bin2/git"
+  out=$( cd "$d/w" && printf '%s\n' "refs/heads/mvskill $lm refs/heads/main $base" | PATH="$d/bin2:$PATH" sh .git/hook origin https://example.invalid/x.git 2>&1 )
+  arm "a failed scope lookup is refused, not read as not-a-chief-repo" "$out" 'could not read the tree' 'not an allowlisted'
+  mb=$( cd "$d/w" && git rev-parse "$base:.claude/institution-manifest.txt" ); rm -f "$d/w/.git/objects/$(printf %s "$mb" | cut -c1-2)/$(printf %s "$mb" | cut -c3-)"
+  out=$(feed "refs/heads/mvskill $lm refs/heads/main $base")
+  arm "a missing manifest blob still refuses an unreviewed toolkit change" "$out" 'review guard' 'not an allowlisted'
+  rm -rf "$d"
+  # Portability scope, end to end: a GNU-only script already on the remote does not block a push that leaves it alone.
   d=$(mktemp -d) || { echo "FAIL setup: no temp dir"; exit 1; }
   ( cd "$d" && git init -q --bare r.git && git init -q w && cd w && git config user.email t@t \
     && git config user.name t && cp "$PWD_HOOK" .git/hook \
     && printf 'map%sfile -t x < f\n' "$x" > old.sh && git add . && git commit -qm old \
     && git remote add origin ../r.git && git push -q origin HEAD:main && git fetch -q origin \
     && echo ok > note.txt && git add . && git commit -qm clean ) >/dev/null 2>&1
-  out=$( cd "$d/w" && sh .git/hook origin https://example.invalid/x.git 2>&1 )
-  if printf '%s\n' "$out" | grep -q 'GNU-only'; then echo "FAIL portability-scope: an old script refused an unrelated push"; n=1
-  else echo "SELFTEST PASS: a script already on the remote does not block an unrelated push"; fi
+  out=$( cd "$d/w" && sh .git/hook origin https://example.invalid/x.git 2>&1 </dev/null )
+  if printf '%s\n' "$out" | grep -q 'GNU-only'; then
+    echo "FAIL portability-scope: a script already on the remote refused an unrelated push"; n=1
+  else
+    echo "SELFTEST PASS: a script already on the remote does not block an unrelated push"
+  fi
   ( cd "$d/w" && printf 'map%sfile -t y < g\n' "$x" > new.sh && git add . && git commit -qm new \
     && echo ok > later.txt && git add . && git commit -qm later ) >/dev/null 2>&1
-  out=$( cd "$d/w" && sh .git/hook origin https://example.invalid/x.git 2>&1 )
-  if printf '%s\n' "$out" | grep -q 'new.sh'; then echo "SELFTEST PASS: a GNU-only script in a pushed commit is refused"
-  else echo "FAIL portability-scope: a GNU-only script in a pushed commit was not refused"; n=1; fi
+  out=$( cd "$d/w" && sh .git/hook origin https://example.invalid/x.git 2>&1 </dev/null )
+  if printf '%s\n' "$out" | grep -q 'new.sh'; then
+    echo "SELFTEST PASS: a GNU-only script in a pushed commit below a clean one is refused"
+  else
+    echo "FAIL portability-scope: a GNU-only script in a pushed commit was not refused"; n=1
+  fi
   rm -rf "$d"
+  # A changed toolkit script whose own --selftest fails refuses the push; one whose selftest passes does not.
+  d=$(mktemp -d) || { echo "FAIL setup: no temp dir"; exit 1; }
+  ( cd "$d" && git init -q --bare r.git && git init -q w && cd w && git config user.email t@t \
+    && git config user.name t && cp "$PWD_HOOK" .git/hook && mkdir -p .agents/skills/x \
+    && echo base > note && git add . && git commit -qm base \
+    && git remote add origin ../r.git && git push -q origin HEAD:main && git fetch -q origin \
+    && printf '[ "$1" = --selftest ] && { [ -z "${GIT_DIR-}" ] || { echo "FAIL leaked GIT_DIR"; exit 1; }; exit 0; }\n' > .agents/skills/x/good.sh && git add . && git commit -qm good ) >/dev/null 2>&1
+  ( cd "$d/w" && git worktree add -q --detach "$d/wt" ) >/dev/null 2>&1   # a hook run from a worktree has GIT_DIR in the shared repo
+  out=$( cd "$d/wt" && GIT_DIR="$(git -C "$d/wt" rev-parse --absolute-git-dir)" sh "$d/w/.git/hook" origin https://example.invalid/x.git 2>&1 </dev/null )
+  if [ "$(git -C "$d/w" config core.bare)" != false ] || [ -n "$(git -C "$d/w" status --short 2>&1 | grep -v '^??' | head -1)" ]; then echo "FAIL selftest-gate: the runner wrote into the pushing repo (core.bare=$(git -C "$d/w" config core.bare))"; n=1
+  elif printf '%s\n' "$out" | grep -q 'self-test of'; then echo "FAIL selftest-gate: a passing selftest refused the push (or saw GIT_DIR): $out"; n=1
+  else echo "SELFTEST PASS: a changed script whose selftest passes is not refused, and runs without GIT_DIR"; fi
+  ( cd "$d/w" && printf '[ "$1" = --selftest ] && { echo FAIL x; exit 1; }\n' > .agents/skills/x/bad.sh && git add . && git commit -qm bad ) >/dev/null 2>&1
+  out=$( cd "$d/w" && sh .git/hook origin https://example.invalid/x.git 2>&1 </dev/null )
+  if printf '%s\n' "$out" | grep -q 'self-test of .agents/skills/x/bad.sh'; then echo "SELFTEST PASS: a changed script whose selftest fails refuses the push"
+  else echo "FAIL selftest-gate: a failing selftest did not refuse the push"; n=1; fi
+  rm -rf "${d:?}"
+  # The runner reads the pushed candidate: a commit already on a review remote, pushed from a non-HEAD ref, is still tested.
+  d=$(mktemp -d) || { echo "FAIL setup: no temp dir"; exit 1; }
+  ( cd "$d" && git init -q --bare r.git && git init -q w && cd w && git config user.email t@t \
+    && git config user.name t && cp "$PWD_HOOK" .git/hook && mkdir -p .agents/skills/x && echo base > note \
+    && git add . && git commit -qm base && git remote add origin ../r.git && git push -q origin HEAD:main \
+    && git checkout -q -b cand && printf '[ "$1" = --selftest ] && { echo FAIL x; exit 1; }\n' > .agents/skills/x/bad.sh \
+    && git add . && git commit -qm bad && git push -q origin cand:refs/heads/review && git fetch -q origin && git checkout -q -b other origin/main ) >/dev/null 2>&1
+  cand=$( cd "$d/w" && git rev-parse cand ); base=$( cd "$d/w" && git rev-parse origin/main )
+  out=$( cd "$d/w" && printf '%s\n' "refs/heads/cand $cand refs/heads/main $base" | sh .git/hook origin https://example.invalid/x.git 2>&1 )
+  if printf '%s\n' "$out" | grep -q 'self-test of .agents/skills/x/bad.sh'; then echo "SELFTEST PASS: a failing selftest in a published, non-HEAD candidate refuses the push"
+  else echo "FAIL selftest-gate: a published non-HEAD candidate escaped its selftest: $out"; n=1; fi
+  rm -rf "${d:?}"
+  # The runner reads the candidate's blobs: an export-ignore on a failing selftest does not hide it, and a failed preparation refuses.
+  d=$(mktemp -d) || { echo "FAIL setup: no temp dir"; exit 1; }
+  ( cd "$d" && git init -q --bare r.git && git init -q w && cd w && git config user.email t@t \
+    && git config user.name t && cp "$PWD_HOOK" .git/hook && mkdir -p .agents/skills/x && echo base > note \
+    && git add . && git commit -qm base && git remote add origin ../r.git && git push -q origin HEAD:main && git fetch -q origin \
+    && printf '[ "$1" = --selftest ] && { echo FAIL x; exit 1; }\n' > .agents/skills/x/bad.sh \
+    && printf '.agents/skills/x/bad.sh export-ignore\n' > .gitattributes && git add . && git commit -qm bad ) >/dev/null 2>&1
+  out=$( cd "$d/w" && sh .git/hook origin https://example.invalid/x.git 2>&1 </dev/null )
+  if printf '%s\n' "$out" | grep -q 'self-test of .agents/skills/x/bad.sh'; then echo "SELFTEST PASS: an export-ignore does not hide a failing selftest"
+  else echo "FAIL selftest-gate: export-ignore hid a failing selftest: $out"; n=1; fi
+  mkdir "$d/bin"; real=$(command -v git)
+  printf '#!/bin/sh\ncase " $* " in *" checkout-index "*) exit 1 ;; esac\nexec %s "$@"\n' "$real" > "$d/bin/git"; chmod +x "$d/bin/git"
+  out=$( cd "$d/w" && PATH="$d/bin:$PATH" sh .git/hook origin https://example.invalid/x.git 2>&1 </dev/null )
+  if printf '%s\n' "$out" | grep -q 'could not prepare the tree'; then echo "SELFTEST PASS: a failed preparation refuses the push"
+  else echo "FAIL selftest-gate: a failed preparation let the push continue: $out"; n=1; fi
+  rm -rf "${d:?}"
+  # A deleted toolkit script has no selftest to run and does not refuse the push.
+  d=$(mktemp -d) || { echo "FAIL setup: no temp dir"; exit 1; }
+  ( cd "$d" && git init -q --bare r.git && git init -q w && cd w && git config user.email t@t \
+    && git config user.name t && cp "$PWD_HOOK" .git/hook && mkdir -p .agents/skills/x \
+    && printf '[ "$1" = --selftest ] && exit 0\n' > .agents/skills/x/old.sh && git add . && git commit -qm base \
+    && git remote add origin ../r.git && git push -q origin HEAD:main && git fetch -q origin \
+    && git rm -q .agents/skills/x/old.sh && git commit -qm drop ) >/dev/null 2>&1
+  out=$( cd "$d/w" && sh .git/hook origin https://example.invalid/x.git 2>&1 </dev/null )
+  if printf '%s\n' "$out" | grep -q 'not an allowlisted' && ! printf '%s\n' "$out" | grep -q 'PUSH REFUSED'; then echo "SELFTEST PASS: deleting a toolkit script is not refused"
+  else echo "FAIL selftest-gate: a deletion was refused: $out"; n=1; fi
+  rm -rf "${d:?}"
   [ "$n" = 0 ] && echo "SELFTEST PASS: $0" || echo "SELFTEST FAIL: $0"
   exit "$n"
 fi
 
-# 1. Conflict markers.
 conflicted=$(git ls-files -z | xargs -0 grep -lE "$RE_CONFLICT" 2>/dev/null || true)
 if [ -n "$conflicted" ]; then
   echo "PUSH REFUSED — merge conflict markers in tracked files:" >&2
   printf '%s\n' "$conflicted" | sed 's/^/    /' >&2
+  echo "    Resolve them; a grep for the wording finds it on both sides and reads clean." >&2
   exit 1
 fi
 
-# 2. Portability. Scope: shell files changed by commits not yet on any remote, because a file
-# already on a remote cannot be fixed by this push. If commits cannot be listed, scan everything.
-# Constructs with no bash 3.2 or BSD equivalent are never allowed; those with one are allowed
-# only with the fallback on the same line (a line carrying 2>/dev/null counts as that).
+# GNU-only constructs in the shell files this push adds, because a script that fails on macOS often fails silently.
+# Hard: no BSD or bash 3.2 equivalent (mapfile, declare -A, asorti), never allowed.
+# Soft: date -d, stat -c and kin, allowed only with a 2>/dev/null BSD fallback on the same line. Comments are exempt.
+# Scope: shell files in commits on no remote-tracking ref, read from the working tree (a file already on a remote
+# cannot be fixed by this push); commits that cannot be listed scan the whole tree.
+# A pass means no known GNU-ism, not that it runs on a Mac.
 if range=$(git rev-list HEAD --not --remotes 2>/dev/null); then
   SHELL_FILES=$(for rev in $range; do git show --name-only --format= "$rev"; done | sort -u \
-    | grep -E '(\.sh|^\.githooks/pre-push)$' \
+    | grep -E '(\.sh|^\.githooks/(pre-push|commit-msg))$' \
     | while read -r f; do [ -f "$f" ] && echo "$f"; done)
 else
   SHELL_FILES=$(git ls-files '*.sh' 2>/dev/null; echo .githooks/pre-push)
@@ -87,61 +247,146 @@ if [ -n "$SHELL_FILES" ]; then
   soft=$(echo "$SHELL_FILES" | xargs grep -HnE "$RE_SOFT" 2>/dev/null | grep -v '2>/dev/null' || true)
 fi
 if [ -n "$hard" ] || [ -n "$soft" ]; then
-  echo "PUSH REFUSED — GNU-only constructs in a script that must run on either platform:" >&2
+  echo "PUSH REFUSED — GNU-only constructs in an instrument, which must run on either platform:" >&2
   [ -n "$hard" ] && { echo "  no portable equivalent — rewrite:" >&2; printf '%s\n' "$hard" | sed 's/^/    /' >&2; }
   [ -n "$soft" ] && { echo "  needs a BSD fallback on the same line (try GNU, 2>/dev/null, then BSD):" >&2
                       printf '%s\n' "$soft" | sed 's/^/    /' >&2; }
+  echo "    bash 3.2 on macOS has no mapfile/readarray/declare ""-A; BSD awk has no asorti." >&2
+  echo "    python3 is already a dependency of these scripts and is identical on both." >&2
   exit 1
 fi
 
-# 3. Skills are timeless. This matches the marked form only; unmarked narrative still needs an eye.
-timeless=$(grep -lE "$RE_TIMELESS" .agents/skills/*/SKILL.md 2>/dev/null || true)
+# Skills are timeless (AGENTS Codification 3): marked incident history ("Proven 2026-..", "Verified twice") in a
+# SKILL.md is refused. Unmarked narrative and founder-attributed dates pass; reference files are exempt.
+timeless=$(grep -lnE "$RE_TIMELESS" .agents/skills/*/SKILL.md 2>/dev/null || true)
 if [ -n "$timeless" ]; then
-  echo "PUSH REFUSED — dated incident history in a skill, which states current procedure only:" >&2
+  echo "PUSH REFUSED — dated incident history in a skill, which is meant to be timeless:" >&2
   printf '%s\n' "$timeless" | sed 's/^/    /' >&2
+  echo "    Keep the rule and its MECHANISM; the date and the war story belong in git." >&2
   exit 1
 fi
 
-# 4. The seed (AGENTS.md) is locked: each unpushed commit touching it must quote the founder.
-# A failure to list commits refuses; a lock that fails open is not a lock.
+remote_url="$2"
+[ -z "$remote_url" ] && remote_url="$1"   # fall back to the remote name / bare URL
+
+# Seed lock: a commit touching AGENTS.md needs FOUNDER-RATIFIED in its message, and a toolkit change needs Reviewed-by.
+# Both read the net change of each push tuple, and any failing git call refuses (a guard that fails open is not a lock).
+# Threat model: this stops accidental unreviewed or unratified landings; deliberate bypass (--no-verify, removing objects) is out of scope.
 seed_guard() {
-  local range rev
-  range=$(git rev-list HEAD --not --remotes 2>/dev/null) || {
-    echo "chief seed guard: could not list the commits being pushed — refusing rather than guessing" >&2; return 1; }
-  for rev in $range; do
-    git show --name-only --format= "$rev" 2>/dev/null | grep -qx 'AGENTS.md' || continue
-    git log -1 --format=%B "$rev" | grep -q 'FOUNDER-RATIFIED:' && continue
+  local line rev found lsha rref rsha zero empty base files chief msg trailers
+  zero=0000000000000000000000000000000000000000
+  empty=4b825dc642cb6eb9a060e54bf8d69288fbee4904
+  # Both guards bind what lands on main: the NET change each main update makes, from its own tuple
+  # <local ref> <local sha> <remote ref> <remote sha>, read from the two commits and never from the
+  # working tree. A branch pushed for review passes. No tuples (no stdin) keep the guards on, comparing
+  # HEAD with origin/main. Anything not positively a branch other than main refuses, and so does any git
+  # call that fails. The landing commit carries the trailer for the whole range.
+  [ -t 0 ] || PUSHED=$(cat)
+  if [ -z "$PUSHED" ]; then
+    lsha=$(git rev-parse HEAD 2>/dev/null) || { echo "chief seed guard: could not read HEAD — refusing rather than guessing" >&2; return 1; }
+    rsha=$(git rev-parse -q --verify refs/remotes/origin/main 2>/dev/null) || rsha=$zero
+    PUSHED="HEAD $lsha refs/heads/main $rsha"
+  fi
+  while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    set -- $line
+    if [ "$#" -ne 4 ] || ! printf '%s' "$2" | grep -Eq '^[0-9a-f]{40}$' || ! printf '%s' "$4" | grep -Eq '^[0-9a-f]{40}$'; then
+      echo "chief seed guard: malformed push tuple '$line' — refusing rather than guessing" >&2; return 1
+    fi
+    lsha=$2 rref=$3 rsha=$4
+    case "$rref" in
+      refs/heads/main) ;;
+      refs/heads/*) continue ;;
+      refs/*) echo "chief seed guard: unknown remote ref '$rref' — only a branch other than main may skip the guards" >&2; return 1 ;;
+      *) echo "chief seed guard: malformed push tuple '$line' — refusing rather than guessing" >&2; return 1 ;;
+    esac
+    if [ "$lsha" = "$zero" ]; then
+      echo "chief seed guard: this push deletes main — refusing" >&2; return 1
+    fi
+    base=$rsha; [ "$rsha" = "$zero" ] && base=$empty
+    # --no-renames: a move shows as a delete of the old path, so it cannot hide a protected file.
+    files=$(git -c core.quotePath=false diff --no-renames --name-only "$base" "$lsha" 2>/dev/null) || {
+      echo "chief seed guard: could not list the files this push changes — refusing rather than guessing" >&2; return 1; }
+    # A chief repo is one whose advertised main or candidate carries the manifest, so deleting the
+    # manifest or pushing from a checkout without it does not switch the review off.
+    chief=""
+    for rev in "$lsha" "$rsha"; do
+      [ "$rev" = "$zero" ] && continue
+      found=$(git ls-tree --name-only "$rev" -- .claude/institution-manifest.txt 2>/dev/null) || {
+        echo "chief seed guard: could not read the tree of $rev — refusing rather than guessing" >&2; return 1; }
+      [ -n "$found" ] && chief=1
+    done
+    msg=$(git log -1 --format=%B "$lsha" 2>/dev/null) && trailers=$(printf '%s\n' "$msg" | git interpret-trailers --parse 2>/dev/null) || {
+      echo "chief seed guard: could not read the landing commit — refusing rather than guessing" >&2; return 1; }
+    # Chief's toolkit changes only with a review, as any work does (AGENTS Delivery 14): the landing
+    # commit names the review that cleared the range in a parsed trailer.
+    if [ -n "$chief" ] && printf '%s\n' "$files" | grep -qE '^"?(\.agents/|\.githooks/|install\.sh$|\.claude/agents/|\.claude/institution-manifest\.txt$)' \
+       && ! printf '%s\n' "$trailers" | grep -qE '^Reviewed-by: *[^ ]'; then
+      echo "chief review guard: the push to main changes the toolkit and its landing commit $(git log -1 --format=%h\ %s "$lsha") has no Reviewed-by: trailer naming the review that cleared it (AGENTS Delivery 14)" >&2
+      return 1
+    fi
+    printf '%s\n' "$files" | grep -qx 'AGENTS.md' || continue
+    printf '%s\n' "$trailers" | grep -qE '^FOUNDER-RATIFIED: *[^ ]' && continue
     cat >&2 <<SEEDEOF
 
-chief seed guard: $(git log -1 --format=%h\ %s "$rev") changes AGENTS.md.
-
-   The seed is locked and changes to it need the founder. If they approved this, say so in
-   the commit message, quoting them:
+chief seed guard: the push to main changes AGENTS.md and its landing commit $(git log -1 --format=%h\ %s "$lsha") lacks the ratification.
+   The seed is LOCKED. If the founder approved it, add a trailer to the landing commit, quoting them:
 
        FOUNDER-RATIFIED: "<their words>"
 
-   If they did not, put the change in a skill instead.
+   If not, put the change in a skill instead: a skill improves through a reviewed commit.
 
 SEEDEOF
     return 1
-  done
+  done <<PUSHEOF
+$PUSHED
+PUSHEOF
   return 0
 }
-seed_guard || exit 1
 
-# 5. Remote allowlist. The check runs after the seed guard so a trusted remote still meets it.
-remote_url="$2"
-[ -z "$remote_url" ] && remote_url="$1"
+# A toolkit script a pushed commit changes must pass its own --selftest, run from that commit's tree (not the working
+# tree): every tuple's candidate is checked, whether or not it is HEAD or already on a remote. Git's own variables
+# are unset for the child, or a selftest's throwaway repos would write into the pushing repo.
+selftest_gate() {
+    local lref lsha rref rsha base files f tmp st
+    while read -r lref lsha rref rsha; do
+        case "$lsha" in ''|*[!0-9a-f]*|0000000000000000000000000000000000000000) continue ;; esac
+        base=$rsha
+        case "$rsha" in ''|*[!0-9a-f]*|0000000000000000000000000000000000000000) base=$(git merge-base "$lsha" refs/remotes/origin/main 2>/dev/null || echo 4b825dc642cb6eb9a060e54bf8d69288fbee4904) ;; esac
+        files=$(git diff --no-renames --diff-filter=d --name-only "$base" "$lsha" 2>/dev/null || git ls-tree -r --name-only "$lsha" 2>/dev/null) || continue
+        files=$(printf '%s\n' "$files" | grep -E '^(\.agents|\.githooks|\.claude)/.*(\.sh|pre-push|commit-msg)$') || continue
+        tmp=$(mktemp -d) || return 1
+        # The candidate's real blobs (checkout-index honours no export-ignore), through a private index; any failure refuses.
+        if ! { GIT_INDEX_FILE="$tmp.idx" git read-tree "$lsha" && GIT_INDEX_FILE="$tmp.idx" git checkout-index -a --prefix="$tmp/" \
+               && ( for v in $(git rev-parse --local-env-vars); do unset "$v"; done; cd "$tmp" && git init -q . && git add -Af && git -c user.name=t -c user.email=t@t commit -qm c ); } >/dev/null 2>&1; then
+            echo "PUSH REFUSED — could not prepare the tree of ${lsha%"${lsha#???????}"} to run its self-tests" >&2
+            rm -rf "${tmp:?}" "${tmp:?}.idx"; return 1
+        fi
+        rm -f "${tmp:?}.idx"
+        for f in $files; do
+            [ -f "$tmp/$f" ] || { echo "PUSH REFUSED — $f is missing from the prepared tree of ${lsha%"${lsha#???????}"}" >&2; rm -rf "${tmp:?}"; return 1; }
+            grep -q -- '--selftest' "$tmp/$f" || continue
+            if ! st=$( for v in $(git rev-parse --local-env-vars); do unset "$v"; done; cd "$tmp" && unset REPO && bash "$f" --selftest </dev/null 2>&1 ); then
+                echo "PUSH REFUSED — the self-test of $f fails at ${lsha%"${lsha#???????}"}:" >&2
+                printf '%s\n' "$st" | grep -i fail | sed 's/^/    /' >&2
+                rm -rf "${tmp:?}"; return 1
+            fi
+        done
+        rm -rf "${tmp:?}"
+    done <<PUSHEOF
+$PUSHED
+PUSHEOF
+    return 0
+}
+
+# The seed guard runs before the allowlist exit, or a trusted remote would never reach it.
+seed_guard || exit 1
+selftest_gate || exit 1
+
 if git config --get-all chief.allowedRemote | grep -Fxq "$remote_url"; then
   exit 0
 fi
-cat >&2 <<EOF
 
-chief sync guard: push to "$remote_url" is blocked — it is not an allowlisted remote.
-
-   If you trust this remote, allowlist it once and push again:
-
-       git config --add chief.allowedRemote "$remote_url"
-
-EOF
+echo "chief sync guard: push to \"$remote_url\" is blocked, not an allowlisted remote; if you trust it, allow it once with:" >&2
+echo "    git config --add chief.allowedRemote \"$remote_url\"" >&2
 exit 1

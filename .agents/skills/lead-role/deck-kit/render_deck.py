@@ -1,8 +1,5 @@
 """Render a professional HTML/CSS deck → PDF (weasyprint), with PNG previews (pymupdf).
-
-HTML/CSS gives real
-typography (IBM Plex), a true layout grid, generous whitespace, and hand-authored SVG figures;
-weasyprint prints 16:9 slides; pymupdf rasterizes for self-review.
+HTML/CSS gives real typography (IBM Plex), a layout grid and SVG figures; weasyprint prints 16:9 slides; pymupdf rasterizes for review.
 
 Run: `uv run python scripts/render_deck.py decks/<name>.html`         -> renders/<name>.pdf
      `uv run python scripts/render_deck.py decks/<name>.html --png 2`  -> + preview PNG of slide 2
@@ -19,16 +16,14 @@ import fitz
 
 ROOT = Path(__file__).resolve().parents[1]
 RENDERS = ROOT / "renders"
-# Previews are for self-review, so they go to a scratch dir rather than the repo.
-# Set DECK_SCRATCH to put them somewhere you can find twice.
+# Previews go to a scratch dir (DECK_SCRATCH to override), not the repo.
 SCRATCH = Path(os.environ.get("DECK_SCRATCH") or Path(tempfile.gettempdir()) / "deck-previews")
 
 
 def _resolve_tokens(html: str) -> str:
     """Substitute every {{key}} with its artifact-read figure.
 
-    No-op for decks that carry no tokens; an unknown token or missing artifact
-    fails loudly here rather than shipping a stale literal.
+    No-op for decks without tokens; an unknown token or missing artifact fails here, not as a stale literal.
     """
     if "{{" not in html:
         return html

@@ -2,7 +2,7 @@
 # Checked by install.sh. Growth past a ceiling cuts or merges a rule instead; raising a
 # ceiling needs a reason in its commit message.
 AGENTS.md 2000
-.agents/skills/fleet/SKILL.md 968
+.agents/skills/fleet/SKILL.md 1050
 .agents/skills/lead-role/SKILL.md 593
 .agents/skills/refine-instructions/SKILL.md 459
 .agents/skills/state/SKILL.md 437

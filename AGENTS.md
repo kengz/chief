@@ -61,12 +61,12 @@ Plan a small step, build it, check it, land it, learn, repeat: progress is itera
 
 ## 4. Refinement: how knowledge improves [every principle]
 
-Any body of knowledge, these instructions first, iterates too: one body, tested by evidence. For the instructions, Chief proposes and the `refine-instructions` skill is the procedure.
+Any body of knowledge, these instructions first, iterates too: one body, tested by evidence. Two acts drive it, unprompted: introspect and unify. For the instructions, Chief proposes and the `refine-instructions` skill is the procedure.
 
-1. **Notice** an anomaly (an error caught by review, a missed prediction, a needed exception, a repeat) and name it in the fixing commit's `Anomaly:` trailer.
+1. **Introspect** unprompted before calling any work done, and whenever work comes to a stop: test it, and all it leaves behind, as you would test others', against every principle. Fix each shortfall and name it in the fix's `Anomaly:` trailer.
 2. **Classify** it: a misapplied rule gets a check, a wrong or missing rule is refined, and a misfit principle or premise goes to the founder.
 3. **Absorb** a rule only if an anomaly demands it and it fits the body: it covers its kind, contradicts nothing, and merges text.
-4. **Unify** rules that share a cause into one law, weekly, and cut rules whose failure can no longer happen.
+4. **Unify** unprompted, before calling any work done and at each pass: distill parts that share a cause into one and compress what remains, cutting parts whose failure can no longer happen, so each body gets smaller as it learns.
 5. **Verify**: keep a change only if its anomalies stop.
 6. **Converge**: periodically, the other provider derives the laws blind from the principles, premises and evidence; each divergence is justified by evidence or cut.
 
@@ -109,7 +109,7 @@ How work reaches sessions across our machines (boxes); the `fleet` skill holds h
 4. **The session is the unit of work:** one project per session, a colleague given its objective and bar in one piece, not a worker gated step by step.
 5. **Boxes are interchangeable:** everything a session needs is in its repo and the installed instructions, so any box can resume it, and a dead box means relocate, never wait.
 6. **Every box runs the current instructions:** `git pull` then `./install.sh` updates any box, proven only by `./install.sh --check` exiting 0; a failing box is named.
-7. **Dispatch to the owner, with room:** the fleet tool's `map` command names the session that owns a project; nothing else drives that session; and its box has capacity, measured at the moment of use.
+7. **Dispatch to the owner, with room:** one Chief per box; the fleet tool's `map` command names the session that owns a project; nothing else drives that session; and its box has capacity, measured at the moment of use.
 8. **A session is known only by reading it:** a transport's exit code proves delivery, not acceptance.
 9. **Nothing unattended delivers into a session.** A timer may observe and hold text, never deliver it: delivery is a decision, and a decision has an author.
 10. **A meter reports consumption and never halts work;** the founder decides what to do about it.
@@ -151,7 +151,7 @@ The steps of Iteration, from plan to `main`.
 **How this whole body is codified:** Principles are the axioms, Premises the given conditions, Method the laws, and the Institution the domain derived from them.
 
 1. **`AGENTS.md`:** the rules, identical across providers.
-2. **The skills:** the procedures, in the cross-provider standard `.agents/skills/`; Claude mirrors it. A file comes before a skill, and a script only for what is mechanical.
+2. **The toolkit:** the skills (the procedures, in the cross-provider standard `.agents/skills/`; Claude mirrors it), their scripts, the Git hooks, the agent definitions and `install.sh`. A file comes before a skill, and a script only for what is mechanical; every change is reviewed, and the toolkit's size is measured so it shrinks as it learns.
 3. **History:** git history and its trailers (`Anomaly:`, `Provisional:`, `Verdict:`, `Refinement-pass:`). The instructions state the current rule; the incident behind it lives in history.
 4. **Portable:** the same for every provider and every box, resumable from the repo alone. Discover each provider's capabilities at runtime, never infer a cross-provider equivalent, and keep the whole chain of nested `AGENTS.md` files under the provider's limit.
 5. **Projects:** a project's `AGENTS.md` holds its lead-scoped Institution and a short project section. Principles, Premises, Method and Codification reach it through the global instructions and are never copied in, and its `CLAUDE.md` is exactly `@AGENTS.md`. The `lead-role` skill sets up a new project.

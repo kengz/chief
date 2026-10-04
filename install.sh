@@ -13,7 +13,7 @@
 # 4. ~/.claude/PRINCIPLES.md and the Codex global are generated from AGENTS.md.
 # 5. The push guard (.githooks) is wired by setting core.hooksPath.
 # 6. Each instruction file stays under its word ceiling in .claude/rule-budget.
-
+# 7. The introspection hook (refine-instructions/introspect.sh) is wired as a quiet PostToolUse hook in Claude and Codex.
 
 set -uo pipefail
 
@@ -22,13 +22,18 @@ if ! command -v sha256sum >/dev/null 2>&1 && command -v shasum >/dev/null 2>&1; 
 fi
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 DEST="${DEST:-$HOME/.claude}"
-MODE="${1-}"
 MANIFEST="$ROOT/.claude/institution-manifest.txt"
 BACKUP="$DEST/.institution-backup"
 MARKER="$DEST/.institution-installed"
+# Codex reads the same skills from ~/.agents/skills and its agents as TOML from ~/.codex/agents, derived on every install.
 CODEX_SKILLS="${CODEX_SKILLS:-$HOME/.agents/skills}"
 CODEX_AGENTS="${CODEX_AGENTS:-$HOME/.codex/agents}"
 
+# What installs is enumerated from git, never hand-listed (a list misses a later skill with every check green).
+# A skill is its whole directory; NF>=4 ignores a stray file directly under skills/.
+# Every file the installer rewrites is produced beside the original and renamed over it only if its producer succeeded.
+put() { local f=$1 tmp="$1.tmp.$$"; shift; "$@" > "$tmp" && mv "$tmp" "$f" || { rm -f "$tmp"; return 1; }; }
+manifest_lines() { ( cd "$ROOT" && shipping_set | sort | xargs sha256sum ); }
 skill_dirs()  { git -C "$ROOT" ls-files -- .agents/skills | awk -F/ 'NF>=4 {print $1"/"$2"/"$3}' | sort -u; }
 agent_files() { git -C "$ROOT" ls-files -- .claude/agents; }
 
@@ -43,11 +48,13 @@ prerequisites() {
         command -v "$c" >/dev/null || missing="$missing $c"
     done
     [ -n "$missing" ] && { echo "MISSING TOOLS:$missing — install them and run again"; return 1; }
+    # No bash 4 gate: the checkers no longer need it, and it would block macOS.
     git -C "$ROOT" rev-parse --git-dir >/dev/null 2>&1 \
         || { echo "not a git checkout — the shipping set is enumerated from git and cannot be derived here"; return 1; }
     return 0
 }
 
+# Every tracked file of the shipping set, from git. A symlink is refused: its content is a path, not a file.
 shipping_set() {
     local mode rest path
     git -C "$ROOT" ls-files -s -- $(skill_dirs) $(agent_files) \
@@ -59,22 +66,28 @@ shipping_set() {
 }
 
 write_manifest() {
-    ( cd "$ROOT" && shipping_set | sort | xargs sha256sum ) > "$MANIFEST" || return 1
+    # An untracked file in a shipping folder is left out of the manifest, then ships unblessed once added.
+    u=$(git -C "$ROOT" ls-files --others --exclude-standard -- .agents/skills .claude/agents)
+    [ -z "$u" ] || { echo "untracked files in the shipping folders; git add them first:"; echo "$u" | sed 's/^/    /'; return 1; }
+    put "$MANIFEST" manifest_lines || return 1
     echo "manifest written: $(wc -l < "$MANIFEST") files. Commit it — it is what every check measures against."
 }
 
+# The floor: does the repo still match what was blessed? Else every comparison is the working tree agreeing with itself.
 check_repo() {
     [ -f "$MANIFEST" ] || { echo "NO MANIFEST at $MANIFEST — run '$0 --write-manifest' and commit it"; return 1; }
     local out extra fail=0
     out=$( cd "$ROOT" && sha256sum -c --quiet "$MANIFEST" 2>&1 )
     [ -n "$out" ] && { echo "REPO DOES NOT MATCH ITS MANIFEST:"; printf '%s\n' "$out" | sed 's/^/    /'
                        echo "    If the change is intended: $0 --write-manifest, then commit."; fail=1; }
+    # A file added to the shipping set and never blessed would otherwise ship unchecked.
     extra=$( comm -23 <(cd "$ROOT" && shipping_set 2>/dev/null | sort) <(awk '{print $2}' "$MANIFEST" | sort) )
     [ -n "$extra" ] && { echo "IN THE SHIPPING SET BUT NOT THE MANIFEST:"; printf '%s\n' "$extra" | sed 's/^/    /'
                          echo "    Run $0 --write-manifest, then commit."; fail=1; }
     return "$fail"
 }
 
+# On the first install only, move anything already at our names into a backup outside skills/ (a renamed duplicate would load twice).
 preserve() {
     [ -f "$MARKER" ] && return 0
     local path="$1" rel
@@ -85,6 +98,8 @@ preserve() {
     mv "$path" "$BACKUP/$rel" && echo "kept your existing $rel as .institution-backup/$rel"
 }
 
+# A Claude agent file as a Codex agent: its name and description, and its body as the
+# instructions. TOML escapes backslashes, and a `"""` in the body would end the string.
 codex_agent() {
     awk 'NR==1 && /^---$/ {fm=1; next}
          fm && /^---$/     {fm=0; print "developer_instructions = \"\"\""; next}
@@ -103,18 +118,17 @@ install_files() {
     trap 'rm -f "$tracked_list"' RETURN
     for path in $(skill_dirs); do
         preserve "$DEST/skills/$(basename "$path")"
+        # No trailing slash on the source; a trailing slash on the destination keeps a one-file skill a directory. Only what git tracks ships.
         git -C "$ROOT" ls-files -- "$path" | sed "s|^$path/||" > "$tracked_list" || return 1
-        # The destination gets a trailing slash and is created first: a skill with one file would
-        # otherwise be copied to a plain file named after the skill.
-        mkdir -p "$DEST/skills/$(basename "$path")" "$CODEX_SKILLS/$(basename "$path")" || return 1
         rsync -a --delete --files-from="$tracked_list" "$ROOT/$path" "$DEST/skills/$(basename "$path")/" || return 1
         rsync -a --delete --files-from="$tracked_list" "$ROOT/$path" "$CODEX_SKILLS/$(basename "$path")/" || return 1
     done
     for path in $(agent_files); do
         preserve "$DEST/agents/$(basename "$path")"
         rsync -a "$ROOT/$path" "$DEST/agents/" || return 1
-        codex_agent "$ROOT/$path" > "$CODEX_AGENTS/$(basename "$path" .md).toml" || return 1
+        put "$CODEX_AGENTS/$(basename "$path" .md).toml" codex_agent "$ROOT/$path" || return 1
     done
+    # A retired skill's copy keeps loading until removed; one that cannot be removed stays in the record so --check keeps failing.
     local dir
     retired_skills | while IFS= read -r dir; do rm -rf -- "$dir" && echo "removed retired skill $dir"; done
     { current_skills; retired_skills | while IFS= read -r dir; do basename "$dir"; done; } \
@@ -123,6 +137,9 @@ install_files() {
 
 current_skills() { for path in $(skill_dirs); do basename "$path"; done | sort -u; }
 
+# The installed copies of skills that are ours and retired: not shipped now, and either named in
+# our record or holding a SKILL.md git once tracked here. A skill from another installer
+# matches neither and is never touched. `|| :` because a first install has no record.
 retired_skills() {
     local name base blobs current
     current=$(current_skills)
@@ -143,35 +160,54 @@ retired_skills() {
     done
 }
 
-dest_of() {
-    case "$1" in
-        .agents/skills/*) echo "$DEST/skills/${1#.agents/skills/}" ;;
-        .claude/agents/*) echo "$DEST/agents/${1#.claude/agents/}" ;;
-        *) echo "" ;;
-    esac
+# A checkout that cannot push is named, not read as clean: the push must have a trusted remote.
+push_ready() {
+    [ -n "$(git -C "$ROOT" config --get-all chief.allowedRemote)" ] \
+        || { echo "PUSH BLOCKED: no chief.allowedRemote — git config --add chief.allowedRemote <url>"; return 1; }
 }
 
+# Both providers' copies against the manifest: every shipped file present and identical, nothing extra, agents regenerated.
 verify_install() {
-    local fail=0 want=0 got=0 path d sum f rel
+    local fail=0 want=0 got=0 path d sum f rel base
     while read -r sum path; do
-        d="$(dest_of "$path")"; [ -n "$d" ] || continue
-        want=$((want + 1))
-        if [ ! -f "$d" ]; then
-            echo "MISSING: $d — re-run without --check"; fail=1
-        elif [ "$(sha256sum < "$d" | cut -d' ' -f1)" = "$sum" ]; then
-            got=$((got + 1))
-        else
-            echo "DIFFERS: $d — edited or stale; re-run without --check to overwrite it"; fail=1
-        fi
+        case "$path" in
+            .agents/skills/*) rel="${path#.agents/skills/}"; set -- "$DEST/skills/$rel" "$CODEX_SKILLS/$rel" ;;
+            .claude/agents/*) set -- "$DEST/agents/${path#.claude/agents/}" ;;
+            *) continue ;;
+        esac
+        for d in "$@"; do
+            want=$((want + 1))
+            if [ ! -f "$d" ]; then
+                echo "MISSING: $d — re-run without --check"; fail=1
+            elif [ "$(sha256sum < "$d" | cut -d' ' -f1)" = "$sum" ]; then
+                got=$((got + 1))
+            else
+                echo "DIFFERS: $d — edited or stale; re-run without --check to overwrite it"; fail=1
+            fi
+        done
     done < "$MANIFEST"
+    for path in $(agent_files); do
+        want=$((want + 1)); d="$CODEX_AGENTS/$(basename "$path" .md).toml"
+        if codex_agent "$ROOT/$path" | cmp -s - "$d"; then got=$((got + 1)); else echo "DIFFERS: $d — re-run without --check"; fail=1; fi
+    done
 
-    while IFS= read -r f; do
-        rel=".agents/skills/${f#"$DEST/skills/"}"
-        grep -q " $rel\$" "$MANIFEST" \
-            || { echo "STALE: $f is not in the manifest — left by a rename or an old install; delete it"; fail=1; }
-    done < <(for d in $( { for p in $(skill_dirs); do basename "$p"; done; cat "$MARKER" 2>/dev/null; } | sort -u); do find "$DEST/skills/$d" -type f 2>/dev/null; done)
+    # An installed agent the repo does not ship (Chief-only, or deleted upstream and never pruned) still loads.
+    for d in "$DEST"/agents/*.md; do
+        [ -f "$d" ] || continue
+        agent_files | grep -qx ".claude/agents/$(basename "$d")" \
+            || { echo "STRAY AGENT: $d is not shipped by this repo — delete it"; fail=1; }
+    done
+
+    # Anything in one of our skill directories that the manifest does not list is a leftover that still loads.
+    for base in "$DEST/skills" "$CODEX_SKILLS"; do
+        while IFS= read -r f; do
+            grep -q " .agents/skills/${f#"$base/"}\$" "$MANIFEST" \
+                || { echo "STALE: $f is not in the manifest — left by a rename or an old install; delete it"; fail=1; }
+        done < <(for d in $( { current_skills; cat "$MARKER" 2>/dev/null; } | sort -u); do find "$base/$d" -type f 2>/dev/null; done)
+    done
 
     d=$(retired_skills); [ -n "$d" ] && { printf 'RETIRED SKILL STILL INSTALLED: %s — re-run without --check\n' "$d"; fail=1; }
+    # A copy under a retired name that git never tracked may be someone else's: named, never deleted or failed on.
     for d in $(git -C "$ROOT" log --diff-filter=D --name-only --format= -- .claude/skills .agents/skills 2>/dev/null \
             | awk -F/ 'NF>3{print $3}' | sort -u); do
         current_skills | grep -qxF -- "$d" && continue
@@ -185,6 +221,7 @@ verify_install() {
     return "$fail"
 }
 
+# core.hooksPath wires the push guard; git ignores .githooks until it points there. --check reports a wired and an unwired repo differently.
 wire_hooks() {
     local want=.githooks have
     [ -x "$ROOT/$want/pre-push" ] || { echo "NOT CHECKED: no $want/pre-push here, so no push guard to wire"; return 0; }
@@ -203,62 +240,111 @@ wire_hooks() {
     fi
 }
 
-verify_codex() {
-    local fail=0 sum path d
-    while read -r sum path; do
-        case "$path" in .agents/skills/*) d="$CODEX_SKILLS/${path#.agents/skills/}" ;; *) continue ;; esac
-        [ "$(sha256sum < "$d" 2>/dev/null | cut -d' ' -f1)" = "$sum" ] \
-            || { echo "CODEX DIFFERS OR MISSING: $d — re-run without --check"; fail=1; }
-    done < "$MANIFEST"
-    for path in $(agent_files); do
-        d="$CODEX_AGENTS/$(basename "$path" .md).toml"
-        codex_agent "$ROOT/$path" | cmp -s - "$d" \
-            || { echo "CODEX DIFFERS OR MISSING: $d — re-run without --check"; fail=1; }
-    done
-    while IFS= read -r d; do
-        grep -q " .agents/skills/${d#"$CODEX_SKILLS/"}\$" "$MANIFEST" \
-            || { echo "CODEX STALE: $d is not in the manifest — delete it"; fail=1; }
-    done < <(for path in $(skill_dirs); do find "$CODEX_SKILLS/$(basename "$path")" -type f 2>/dev/null; done)
-    [ "$fail" -eq 0 ] && echo "codex: skills in $CODEX_SKILLS and agents in $CODEX_AGENTS match their sources"
-    return "$fail"
+# THE INTROSPECTION HOOK (Method section 4) is a PostToolUse hook in both providers, matched to the hand-over tools. Claude lists it in
+# settings.json; Codex lists it in hooks.json and runs only hooks it has trusted, by a hash only Codex computes, so the install
+# records the hash Codex reports in its config.toml. --check: present, synchronous, matched, timed, not disabled, trusted, and no
+# leftover Stop entry. Limit: project settings can still switch hooks off; --check certifies only what the install controls.
+CODEX_HOOKS="${CODEX_HOOKS:-$HOME/.codex/hooks.json}"
+HOOK_MATCHER="Bash|SendMessage|send_message|followup_task|spawn_agent"
+hook_entry() { # hook_entry <file> <command> <install|check>: a synchronous, matched PostToolUse hook runs the command, no Stop entry runs it, hooks are not disabled; install makes it so
+    python3 - "$@" "$HOOK_MATCHER" <<'PY'
+import json,os,sys
+f,cmd,mode,matcher=sys.argv[1:5]
+try: d=json.load(open(f))
+except FileNotFoundError: d={}
+if d.get("disableAllHooks"): print("disableAllHooks is true in "+f); sys.exit(1)
+hk=d.setdefault("hooks",{}); ev=hk.setdefault("PostToolUse",[])
+runs=lambda h: h.get("command")==cmd
+leftover=any(runs(h) for g in hk.get("Stop",[]) for h in g.get("hooks",[]))
+mine=[(g,h) for g in ev for h in g.get("hooks",[]) if runs(h)]
+if mode=="install":
+    for g in hk.get("Stop",[]): g["hooks"]=[h for h in g.get("hooks",[]) if not runs(h)]
+    if "Stop" in hk:
+        hk["Stop"]=[g for g in hk["Stop"] if g.get("hooks")]
+        if not hk["Stop"]: del hk["Stop"]
+    for g,h in mine: h.pop("async",None); h["timeout"]=30; g["matcher"]=matcher
+    if not mine: ev.append({"matcher":matcher,"hooks":[{"type":"command","command":cmd,"timeout":30}]})
+    t=f+".tmp"
+    try:
+        with open(t,"w") as o: json.dump(d,o,indent=2); o.flush(); os.fsync(o.fileno())
+        os.replace(t,f); sys.exit(0)
+    except OSError as e:
+        try: os.remove(t)
+        except OSError: pass
+        sys.exit("could not write %s (%s); the original is untouched"%(f,e))
+sys.exit(0 if not leftover and any(h.get("type")=="command" and not h.get("async") and h.get("timeout")==30 and g.get("matcher")==matcher for g,h in mine) else 1)
+PY
+}
+codex_call() { # codex_call <request json>: Codex's own reply to one app-server request
+    { printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"clientInfo":{"name":"install","version":"1"}}}' \
+        '{"jsonrpc":"2.0","method":"initialized"}' "$1"; sleep 2; } \
+    | CODEX_HOME="$(dirname "$CODEX_HOOKS")" codex app-server --listen stdio:// 2>/dev/null | grep '"id":2'
+}
+codex_hook_trust() { # prints "key hash trustStatus enabled async" of our PostToolUse hook as Codex itself reports it
+    codex_call "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"hooks/list\",\"params\":{\"cwds\":[\"$ROOT\"]}}" \
+    | python3 -c 'import json,sys
+for l in sys.stdin:
+    for e in (json.loads(l).get("result") or {}).get("data") or []:
+        for h in e["hooks"]:
+            if h.get("command")==sys.argv[1] and h["eventName"]=="postToolUse": print(h["key"],h["currentHash"],h["trustStatus"],h["enabled"],h.get("async",False))' "$1"
+}
+codex_trust_write() { # codex_trust_write <config.toml> <key> <hash>: Codex's own config writer sets the hook's trust, so no TOML is edited here
+    codex_call "$(python3 -c 'import json,sys
+print(json.dumps({"jsonrpc":"2.0","id":2,"method":"config/value/write","params":{"keyPath":"hooks.state","mergeStrategy":"upsert","filePath":sys.argv[1],"value":{sys.argv[2]:{"trusted_hash":sys.argv[3],"enabled":True}}}}))' "$@")" | grep -q '"status":"ok"'
+}
+wire_hooks_introspect() {
+    local mode=install key hash trust enabled async
+    [ "${1-}" = "--check" ] && mode=check
+    local claude_cmd="bash \"$DEST/skills/refine-instructions/introspect.sh\"" codex_cmd="bash \"$CODEX_SKILLS/refine-instructions/introspect.sh\""
+    [ "$mode" = install ] && { mkdir -p "$DEST" "$(dirname "$CODEX_HOOKS")" || return 1; }
+    hook_entry "$DEST/settings.json" "$claude_cmd" "$mode" && hook_entry "$CODEX_HOOKS" "$codex_cmd" "$mode" \
+        || { echo "INTROSPECTION HOOK OFF: $DEST/settings.json or $CODEX_HOOKS lacks a synchronous, matched PostToolUse hook running introspect.sh, still has it on Stop, or has hooks disabled — install to wire it"; return 1; }
+    if command -v codex >/dev/null; then
+        read -r key hash trust enabled async <<< "$(codex_hook_trust "$codex_cmd")"
+        if [ "$mode" = install ] && { [ "$trust" != trusted ] || [ "$enabled" != True ]; } && [ -n "$key" ]; then
+            codex_trust_write "$(dirname "$CODEX_HOOKS")/config.toml" "$key" "$hash" || return 1
+            read -r key hash trust enabled async <<< "$(codex_hook_trust "$codex_cmd")"   # believe Codex, not the write
+        fi
+        [ "$trust" = trusted ] && [ "$enabled" = True ] && [ "$async" = False ] \
+            || { echo "INTROSPECTION HOOK NOT RUNNING IN CODEX: trust ${trust:-unknown}, enabled ${enabled:-unknown}, async ${async:-unknown} — install to trust it, or review it in Codex if it says modified"; return 1; }
+    else echo "NOT CHECKED: no codex here, so its hook trust is unverified"; fi
+    echo "the introspection hook runs after hand-over tools in Claude ($DEST/settings.json) and Codex ($CODEX_HOOKS)"
 }
 
+# The global house rules are generated from AGENTS.md, the one hand-edited source: its core becomes ~/.claude/PRINCIPLES.md and the Codex global.
 section() { awk -v h="# $1" '$0==h {on=1} on && /^---$/ {exit} on' "$ROOT/AGENTS.md"; }
 GENERATED_NOTE="<!-- GENERATED by install.sh from AGENTS.md. Do not edit. -->"
 CODEX_GLOBAL="${CODEX_GLOBAL:-$HOME/.codex/AGENTS.md}"
 global_targets() { printf '%s\n' "$DEST/PRINCIPLES.md" "$CODEX_GLOBAL"; }
 global_content() {
-    case "$1" in
-        */PRINCIPLES.md) printf '%s\n\n%s\n\n%s\n\n%s\n\n%s\n' "$GENERATED_NOTE" "$(section Principles)" "$(section Premises)" "$(section Method)" "$(section Codification)" ;;
-        "$CODEX_GLOBAL") printf '%s\n\n%s\n\n%s\n\n%s\n\n%s\n\n%s\n' "$GENERATED_NOTE" \
-            "These bind every session on this machine, in every repo; this is the Codex twin of ~/.claude/CLAUDE.md." \
-            "$(section Principles)" "$(section Premises)" "$(section Method)" "$(section Codification)" ;;
-    esac
+    local out="$GENERATED_NOTE" h
+    [ "$1" = "$CODEX_GLOBAL" ] && out="$out
+
+These bind every session on this machine, in every repo; this is the Codex twin of ~/.claude/CLAUDE.md."
+    for h in Principles Premises Method Codification; do out="$out
+
+$(section "$h")"; done
+    printf '%s\n' "$out"
 }
+# ~/.claude/CLAUDE.md imports the generated core; written when absent or opening with the chief marker, otherwise left alone.
 CLAUDE_GLOBAL="$DEST/CLAUDE.md"
 CLAUDE_MARK="<!-- chief:communication -->"
 claude_owned() { [ ! -e "$CLAUDE_GLOBAL" ] || [ "$(head -n 1 "$CLAUDE_GLOBAL")" = "$CLAUDE_MARK" ]; }
 claude_global() { printf '%s\n\n%s\n\n%s\n' "$CLAUDE_MARK" "These bind every session on this machine, in every repo." "@$DEST/PRINCIPLES.md"; }
-RETIRED_GLOBALS="$DEST/skills/communication $CODEX_SKILLS/communication"
 install_globals() {
-    local t d
-    for d in $RETIRED_GLOBALS; do
-        [ -f "$d/SKILL.md" ] && grep -qF "<!-- GENERATED by install.sh" "$d/SKILL.md" && rm -rf -- "$d" && echo "removed retired generated $d"
-    done
+    local t
     if claude_owned && ! cmp -s "$CLAUDE_GLOBAL" <(claude_global); then
         [ -f "$CLAUDE_GLOBAL" ] && { mkdir -p "$BACKUP"; cp "$CLAUDE_GLOBAL" "$BACKUP/$(echo "$CLAUDE_GLOBAL" | tr / _)"; }
-        claude_global > "$CLAUDE_GLOBAL" || return 1
+        put "$CLAUDE_GLOBAL" claude_global || return 1
     fi
     for t in $(global_targets); do
+        # A hand-written file in a generated path is kept once in the backup before it is replaced.
         [ -f "$t" ] && ! grep -qF "$GENERATED_NOTE" "$t" && { mkdir -p "$BACKUP"; cp "$t" "$BACKUP/$(echo "$t" | tr / _)"; }
-        mkdir -p "$(dirname "$t")" && global_content "$t" > "$t" || return 1
+        mkdir -p "$(dirname "$t")" && put "$t" global_content "$t" || return 1
     done
 }
 verify_globals() {
-    local t d fail=0
-    for d in $RETIRED_GLOBALS; do
-        [ -f "$d/SKILL.md" ] && grep -qF "<!-- GENERATED by install.sh" "$d/SKILL.md" && { echo "RETIRED GLOBAL STILL INSTALLED: $d — re-run without --check"; fail=1; }
-    done
+    local t fail=0
     claude_owned && ! cmp -s "$CLAUDE_GLOBAL" <(claude_global) \
         && { echo "GLOBAL DIFFERS: $CLAUDE_GLOBAL — re-run without --check"; fail=1; }
     for t in $(global_targets); do
@@ -268,6 +354,7 @@ verify_globals() {
     return "$fail"
 }
 
+# The rule budget: each instruction file's word ceiling (.claude/rule-budget). Growth past it fails here, so adding a rule means cutting or merging one.
 check_rule_budget() {
     local budget="$ROOT/.claude/rule-budget" fail=0 path max n
     [ -f "$budget" ] || { echo "RULE BUDGET MISSING: $budget"; return 1; }
@@ -275,6 +362,7 @@ check_rule_budget() {
         case "$path" in ''|'#'*) continue ;; esac
         n=$(wc -w < "$ROOT/$path")
         [ "$n" -le "$max" ] || { echo "OVER RULE BUDGET: $path has $n words, ceiling $max — cut or merge a rule"; fail=1; }
+        # Shared instructions bind every provider, so they name roles, not one provider's tools.
         grep -qiw 'subagents\?' "$ROOT/$path" && { echo "NOT PROVIDER-NEUTRAL: $path names subagents — say 'a fresh seat'"; fail=1; }
     done < "$budget"
     [ "$fail" -eq 0 ] && echo "rule budget: every instruction file within its ceiling"
@@ -286,8 +374,13 @@ prerequisites || exit 1
 check_repo || exit 1
 check_rule_budget || exit 1
 [ "${1-}" = "--check" ] || { install_files && install_globals; } || { echo "install failed — nothing verified"; exit 1; }
-wire_hooks "${1-}" || exit 1
+# Wiring the guard comes before verifying: an unrelated drift must not leave it unwired or hide that it is off.
+wire_hooks "${1-}"; wired=$?
+push_ready; ready=$?
+wire_hooks_introspect "${1-}"; hooked=$?
+[ "$wired" = 0 ] && [ "$ready" = 0 ] || exit 1
 verify_install || exit 1
-verify_codex || exit 1
 verify_globals || exit 1
+[ "$hooked" = 0 ] || exit 1   # last, so its failure never hides the other reports
+# Explicit exit: a trailing false `[ ]` test would otherwise become the script's status.
 exit 0

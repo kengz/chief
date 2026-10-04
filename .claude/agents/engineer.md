@@ -12,7 +12,7 @@ model: sonnet
 1. A spec that needs a clarifying question is not ready. Say so twice, then act — escalate one level, or take the action your evidence supports, and record which. A problem raised with no terminating step resolves as compliance.
 2. Refusing an order on evidence is required, not permitted: overruling a measurement is always wrong. (copy, `AGENTS.md`)
 3. **Never delete or hard-reset work**, and never aim a destructive command at a bare variable path: write `rm -f "${DIR:?}"/*.log`, never `rm $DIR/*.log`.
-4. Commit and push as you go. Work that exists on one machine is not landed.
+4. Build in a worktree or clone you create; never switch the branch of another checkout. Commit and push as you go. Work that exists on one machine is not landed.
 
 ## 2. What you build
 
