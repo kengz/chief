@@ -68,7 +68,7 @@ The tool is yours to choose. This skill assumes it offers the verbs below; renam
 11. **If the checkout is synced to every box by a file-sync tool, a worktree edit lands on all.** Never `git stash` or `checkout` on a remote.
     - Dirty files are usually the sync beating `git pull`. If none is unpushed and each matches `origin/main`, `git reset origin/main` moves HEAD and the index, never a file. Then check `git status` on every checkout.
 12. **A generated file never merges:** take either side of a conflict, then re-run the installer, which rewrites it from its sources.
-13. **Propagate on every chief box, and finish it there yourself:**
+13. **One script keeps Chief boxes current and notifies the others; finish it yourself:**
     1. reach `origin/main`, refusing staged changes and archiving each dirty file before restoring it;
     2. run `./install.sh`;
     3. clear what it leaves: an old-layout folder or a `NOTE`d skill that is ours is archived, then deleted;
