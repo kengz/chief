@@ -17,7 +17,7 @@ You are the founder. Chief is a long-running session that holds the purpose of e
     1. `fleet`: driving persistent sessions across machines.
     2. `state`: the records and the daily brief.
     3. `lead-role`: what a project's lead session owns, plus a deck kit for progress decks.
-    4. `refine-instructions`: measuring the work and improving the rules from evidence; its `introspect.sh` is the quiet hook that, after a hand-over, asks a session to introspect and unify.
+    4. `refine`: measuring the work and improving the rules from evidence; its `refine.sh` is the quiet hook that, after a hand-over, asks a session to refine what it handed over.
 4. **Agents** in `.claude/agents/`: `engineer`, `verifier`, `challenger` and `brief-runner`.
 5. **Records** in `records/`: the work list and the approvals. `planner.md` and `projects/` are small templates for the founder's day and project cards.
 6. **Guards** in `.githooks/`:
@@ -48,7 +48,7 @@ An existing `~/.claude/CLAUDE.md` that you wrote by hand is left alone; the inst
 3. Chief writes the work list when work starts, not when it returns, so work that never returns still leaves a row.
 4. Review is done by someone other than the builder: a verifier asks whether it is right and clear, a challenger asks how it could fail.
 5. `rule-budget` keeps the rules short: adding a rule means cutting or merging another.
-6. The anomaly trailers on fix commits are the evidence `refine-instructions` reads to improve the rules.
+6. The anomaly trailers on fix commits are the evidence `refine` reads to improve the rules.
 
 ## Make it yours
 
@@ -57,7 +57,7 @@ An existing `~/.claude/CLAUDE.md` that you wrote by hand is left alone; the inst
 3. The `fleet` skill assumes a tool that starts and drives persistent sessions on your machines (`map`, `goal`, `send`, `read`, `up`, `restart`). Use your own and rename the verbs.
 4. For the daily brief, copy `.claude/intel-sources.example.md` to `.claude/intel-sources.md` (it is gitignored) and list your feeds. Add calendar or mail connectors to `brief-runner` if you want those sections.
 5. The "vault" is this checkout, synced across your machines (git carries the toolkit; a sync service such as Obsidian can carry the notes). The brief archives each day's notes under `archive/daily/`.
-6. `refine-instructions/measure.sh` finds this repo at `$HOME/projects/chief`; set `CHIEF_REPO` if you cloned it elsewhere.
+6. `refine/measure.sh` finds this repo at `$HOME/projects/chief`; set `CHIEF_REPO` if you cloned it elsewhere.
 7. Keep notes, calendars and anything personal out of git. `.gitignore` allows only the toolkit; allow a push only to remotes you trust with `git config --add chief.allowedRemote <url>`.
 
 ## Licence

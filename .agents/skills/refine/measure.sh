@@ -65,7 +65,7 @@ for r in "$chief" "$repo"; do
     t=$(git -C "$r" log -1 --format=%B "$h" | git interpret-trailers --parse | grep '^Anomaly:') || continue
     n=$((n + 1)); printf '%s\n' "$t" | grep -q '^Anomaly: *founder-raised:' && f=$((f + 1)); done
 done
-echo "anomalies since the last pass: $n$([ "$n" -ge 5 ] && echo ' — classify them now (refine-instructions §2)')"
+echo "anomalies since the last pass: $n$([ "$n" -ge 5 ] && echo ' — classify them now (refine §2)')"
 echo "founder-raised anomalies since the last pass: $f$([ "$f" -gt 0 ] && echo ' — the founder had to ask (Roles: asked only for what only they can give); the pass works these first')"
 verdicts=$(git -C "$chief" log --format=%B --grep='^Verdict:' 2>/dev/null | sed -n 's/^Verdict: *\([0-9a-f]\{7,\}\) *\(kept\|reverted\).*/\1/p')
 git -C "$chief" log --format='%h %cs %s' --grep='^Provisional:' 2>/dev/null | while read -r h d rest; do

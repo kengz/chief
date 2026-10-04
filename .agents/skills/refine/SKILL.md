@@ -1,6 +1,6 @@
 ---
-name: refine-instructions
-description: The procedure for Method's Iteration measure and Refinement. Runs on every lane watcher's periodic check, when a slice lands, at day end, at an anomaly, and after the founder corrects how the work runs. Never wait to be asked.
+name: refine
+description: The procedure for Method's Iteration measure and Refinement. Runs at each landing, at day end, at an anomaly, after a founder correction and after each hand-over. Never wait to be asked.
 ---
 
 # Refine the instructions
@@ -16,11 +16,10 @@ description: The procedure for Method's Iteration measure and Refinement. Runs o
 ## 2. Notice and classify
 
 1. Anomalies are the evidence: each trailer says what was expected, what happened, and the failed assumption
-   (`git log --grep='^Anomaly:'`, every mapped repo, since the last pass, plus any uncommitted). One the founder had to point out about
-   how the work runs is the costliest; its trailer begins `founder-raised:`. The pass works these first, naming for each
-   the check that would have caught it first, and building it.
+   (`git log --grep='^Anomaly:'`, every mapped repo, since the last pass, plus any uncommitted). One the founder had to point out is the
+   costliest; its trailer begins `founder-raised:`. The pass works these first, building the check that would have caught each.
 2. Classify in one batch. A seat other than the author assigns each anomaly a class (misapplied, rule wrong or missing, principle) and a failure type, and counts types. The largest type is
-   worked first; a misapplied rule gets a check and needs no second seat.
+   worked first; a misapplied rule gets a check.
 
 ## 3. Absorb and unify
 
@@ -29,6 +28,7 @@ description: The procedure for Method's Iteration measure and Refinement. Runs o
    It reports the toolkit's net size change, and growth names the anomaly that demanded it. Changes go to the founder for ratification, one proposal per pass.
 3. Delete process steps freely and count what comes back: about one deletion in ten should.
 4. `install.sh --check` holds each file under `.claude/rule-budget`: an alarm; the principles decide.
+5. Names: each concept keeps one name across AGENTS.md, the skills, the scripts and the hooks (Clear); a concept under two names is an anomaly.
 
 ## 4. Verify and converge
 

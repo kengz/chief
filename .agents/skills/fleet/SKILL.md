@@ -20,8 +20,8 @@ The tool is yours to choose. This skill assumes it offers the verbs below; renam
     1. objective and frozen bar;
     2. a size check in the first 30 minutes;
     3. before the ready line, one fresh challenger seat and the project's quick checks; a wording finding gives its replacement text;
-    4. who instructs the lane, which prevents most questions;
-    5. two closing lines, each ending the goal, and the brief says printing either one meets it: `ready-for-gates <commit>` while a gate is owed (its head commit carries non-empty `Introspected:` and `Unified:` trailers, or the gate refuses), else `blocked <commit> — <reason>`.
+    4. who instructs the lane;
+    5. two closing lines, each ending the goal, and the brief says printing either one meets it: `ready-for-gates <commit>` while a gate is owed (its head commit carries a non-empty `Refined:` trailer, or the gate refuses), else `blocked <commit> — <reason>`.
 
 ## 2. Two providers
 
@@ -33,7 +33,7 @@ The tool is yours to choose. This skill assumes it offers the verbs below; renam
 
 5. **Only the session's text says what happened.**
     - Busy is the session's own interrupt hint and nothing else; any other overlay means the reader could not tell.
-    - A lane waiting on its supervisor still reads `ready`, so read the events of lanes and gates, not `wait` alone.
+    - Watch with a loop printing a line per lane event and finished gate report, and flagging a ready lane unchanged for an hour; never `wait` alone.
     - A transport exiting zero proves keystrokes were delivered, not accepted.
     - A stopped box with a live work list is correct, not broken; read the list itself, since annotated cells make a grep undercount.
 6. **`goal` exit codes:**

@@ -13,7 +13,7 @@
 # 4. ~/.claude/PRINCIPLES.md and the Codex global are generated from AGENTS.md.
 # 5. The push guard (.githooks) is wired by setting core.hooksPath.
 # 6. Each instruction file stays under its word ceiling in .claude/rule-budget.
-# 7. The introspection hook (refine-instructions/introspect.sh) is wired as a quiet PostToolUse hook in Claude and Codex.
+# 7. The refine hook (refine/refine.sh) is wired as a quiet PostToolUse hook in Claude and Codex.
 
 set -uo pipefail
 
@@ -144,7 +144,7 @@ retired_skills() {
     local name base blobs current
     current=$(current_skills)
     { cat "$MARKER" 2>/dev/null || :
-      git -C "$ROOT" log --diff-filter=D --name-only --format= -- .claude/skills .agents/skills 2>/dev/null \
+      git -C "$ROOT" log --no-renames --diff-filter=D --name-only --format= -- .claude/skills .agents/skills 2>/dev/null \
           | awk -F/ 'NF>3{print $3}'; } | sort -u | while read -r name; do
         case "$name" in ''|.*|*/*) continue ;; esac
         printf '%s\n' "$current" | grep -qxF -- "$name" && continue
@@ -208,7 +208,7 @@ verify_install() {
 
     d=$(retired_skills); [ -n "$d" ] && { printf 'RETIRED SKILL STILL INSTALLED: %s — re-run without --check\n' "$d"; fail=1; }
     # A copy under a retired name that git never tracked may be someone else's: named, never deleted or failed on.
-    for d in $(git -C "$ROOT" log --diff-filter=D --name-only --format= -- .claude/skills .agents/skills 2>/dev/null \
+    for d in $(git -C "$ROOT" log --no-renames --diff-filter=D --name-only --format= -- .claude/skills .agents/skills 2>/dev/null \
             | awk -F/ 'NF>3{print $3}' | sort -u); do
         current_skills | grep -qxF -- "$d" && continue
         for f in "$DEST/skills/$d" "$CODEX_SKILLS/$d"; do
@@ -240,13 +240,13 @@ wire_hooks() {
     fi
 }
 
-# THE INTROSPECTION HOOK (Method section 4) is a PostToolUse hook in both providers, matched to the hand-over tools. Claude lists it in
+# THE REFINE HOOK (Method section 4, Refinement) is a PostToolUse hook in both providers, matched to the hand-over tools. Claude lists it in
 # settings.json; Codex lists it in hooks.json and runs only hooks it has trusted, by a hash only Codex computes, so the install
 # records the hash Codex reports in its config.toml. --check: present, synchronous, matched, timed, not disabled, trusted, and no
-# leftover Stop entry. Limit: project settings can still switch hooks off; --check certifies only what the install controls.
+# no entry left under the hook's old name introspect.sh, under any event. Limit: project settings can still switch hooks off; --check certifies only what the install controls.
 CODEX_HOOKS="${CODEX_HOOKS:-$HOME/.codex/hooks.json}"
 HOOK_MATCHER="Bash|SendMessage|send_message|followup_task|spawn_agent"
-hook_entry() { # hook_entry <file> <command> <install|check>: a synchronous, matched PostToolUse hook runs the command, no Stop entry runs it, hooks are not disabled; install makes it so
+hook_entry() { # hook_entry <file> <command> <install|check>: a synchronous, matched PostToolUse hook runs the command, no entry under the old name introspect.sh remains, hooks are not disabled; install makes it so
     python3 - "$@" "$HOOK_MATCHER" <<'PY'
 import json,os,sys
 f,cmd,mode,matcher=sys.argv[1:5]
@@ -255,13 +255,17 @@ except FileNotFoundError: d={}
 if d.get("disableAllHooks"): print("disableAllHooks is true in "+f); sys.exit(1)
 hk=d.setdefault("hooks",{}); ev=hk.setdefault("PostToolUse",[])
 runs=lambda h: h.get("command")==cmd
-leftover=any(runs(h) for g in hk.get("Stop",[]) for h in g.get("hooks",[]))
+isold=lambda h: "refine-instructions/introspect.sh" in str(h.get("command"))  # the hook's old name and place, under any event
+leftover=any(isold(h) for v in hk.values() if isinstance(v,list) for g in v for h in g.get("hooks",[]))
 mine=[(g,h) for g in ev for h in g.get("hooks",[]) if runs(h)]
 if mode=="install":
-    for g in hk.get("Stop",[]): g["hooks"]=[h for h in g.get("hooks",[]) if not runs(h)]
-    if "Stop" in hk:
-        hk["Stop"]=[g for g in hk["Stop"] if g.get("hooks")]
-        if not hk["Stop"]: del hk["Stop"]
+    for k in list(hk):
+        if not isinstance(hk[k],list): continue
+        keep=[g for g in hk[k] if not (g.get("hooks") and all(isold(h) for h in g["hooks"]))]   # groups holding only old entries go
+        for g in keep:
+            if isinstance(g.get("hooks"),list): g["hooks"]=[h for h in g["hooks"] if not isold(h)]
+        if not keep and hk[k] and k!="PostToolUse": del hk[k]
+        else: hk[k][:]=keep   # in place: ev is this very list
     for g,h in mine: h.pop("async",None); h["timeout"]=30; g["matcher"]=matcher
     if not mine: ev.append({"matcher":matcher,"hooks":[{"type":"command","command":cmd,"timeout":30}]})
     t=f+".tmp"
@@ -292,13 +296,13 @@ codex_trust_write() { # codex_trust_write <config.toml> <key> <hash>: Codex's ow
     codex_call "$(python3 -c 'import json,sys
 print(json.dumps({"jsonrpc":"2.0","id":2,"method":"config/value/write","params":{"keyPath":"hooks.state","mergeStrategy":"upsert","filePath":sys.argv[1],"value":{sys.argv[2]:{"trusted_hash":sys.argv[3],"enabled":True}}}}))' "$@")" | grep -q '"status":"ok"'
 }
-wire_hooks_introspect() {
+wire_hooks_refine() {
     local mode=install key hash trust enabled async
     [ "${1-}" = "--check" ] && mode=check
-    local claude_cmd="bash \"$DEST/skills/refine-instructions/introspect.sh\"" codex_cmd="bash \"$CODEX_SKILLS/refine-instructions/introspect.sh\""
+    local claude_cmd="bash \"$DEST/skills/refine/refine.sh\"" codex_cmd="bash \"$CODEX_SKILLS/refine/refine.sh\""
     [ "$mode" = install ] && { mkdir -p "$DEST" "$(dirname "$CODEX_HOOKS")" || return 1; }
     hook_entry "$DEST/settings.json" "$claude_cmd" "$mode" && hook_entry "$CODEX_HOOKS" "$codex_cmd" "$mode" \
-        || { echo "INTROSPECTION HOOK OFF: $DEST/settings.json or $CODEX_HOOKS lacks a synchronous, matched PostToolUse hook running introspect.sh, still has it on Stop, or has hooks disabled — install to wire it"; return 1; }
+        || { echo "REFINE HOOK OFF: $DEST/settings.json or $CODEX_HOOKS lacks a synchronous, matched PostToolUse hook running refine.sh, still has one under the old name introspect.sh, or has hooks disabled — install to wire it"; return 1; }
     if command -v codex >/dev/null; then
         read -r key hash trust enabled async <<< "$(codex_hook_trust "$codex_cmd")"
         if [ "$mode" = install ] && { [ "$trust" != trusted ] || [ "$enabled" != True ]; } && [ -n "$key" ]; then
@@ -306,9 +310,9 @@ wire_hooks_introspect() {
             read -r key hash trust enabled async <<< "$(codex_hook_trust "$codex_cmd")"   # believe Codex, not the write
         fi
         [ "$trust" = trusted ] && [ "$enabled" = True ] && [ "$async" = False ] \
-            || { echo "INTROSPECTION HOOK NOT RUNNING IN CODEX: trust ${trust:-unknown}, enabled ${enabled:-unknown}, async ${async:-unknown} — install to trust it, or review it in Codex if it says modified"; return 1; }
+            || { echo "REFINE HOOK NOT RUNNING IN CODEX: trust ${trust:-unknown}, enabled ${enabled:-unknown}, async ${async:-unknown} — install to trust it, or review it in Codex if it says modified"; return 1; }
     else echo "NOT CHECKED: no codex here, so its hook trust is unverified"; fi
-    echo "the introspection hook runs after hand-over tools in Claude ($DEST/settings.json) and Codex ($CODEX_HOOKS)"
+    echo "the refine hook runs after hand-over tools in Claude ($DEST/settings.json) and Codex ($CODEX_HOOKS)"
 }
 
 # The global house rules are generated from AGENTS.md, the one hand-edited source: its core becomes ~/.claude/PRINCIPLES.md and the Codex global.
@@ -377,7 +381,7 @@ check_rule_budget || exit 1
 # Wiring the guard comes before verifying: an unrelated drift must not leave it unwired or hide that it is off.
 wire_hooks "${1-}"; wired=$?
 push_ready; ready=$?
-wire_hooks_introspect "${1-}"; hooked=$?
+wire_hooks_refine "${1-}"; hooked=$?
 [ "$wired" = 0 ] && [ "$ready" = 0 ] || exit 1
 verify_install || exit 1
 verify_globals || exit 1

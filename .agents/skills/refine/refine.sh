@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
 # PostToolUse hook for Claude and Codex (Method section 4): after a hand-over action it adds one sentence of context for the
-# model: introspect and unify, and report only what was found or changed. A hand-over is a shell command containing git commit, push, merge or
+# model: refine it, and report only what was found or changed. A hand-over is a shell command containing git commit, push, merge or
 # rebase or a fleet tool send or goal, or a message to another session. It never blocks, shows the user nothing, keeps no
 # state, and reads no Git, files or network. Any error of its own allows silently.
-# introspect.sh --selftest   runs seeded controls, each shown failing against a neutered copy.
+# refine.sh --selftest   runs seeded controls, each shown failing against a neutered copy.
 decide() {
     python3 -c 'import json,re,sys
 d=json.load(sys.stdin); name=d.get("tool_name") or ""; cmd=str((d.get("tool_input") or {}).get("command") or "")
 SH=re.compile(r"git\s+(commit|push|merge|rebase)\b|[a-z-]*fleet[a-z-]*\s+(send|goal)\b")  # arm:shell
 SEND={"SendMessage","send_message","followup_task","spawn_agent"}  # arm:send
 if not (name in SEND or (name=="Bash" and SH.search(cmd))): sys.exit(0)
-print(json.dumps({"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"You just handed work over: introspect and unify it (Method \u00a74 items 1 and 4); report only what you found or changed, under a final heading **Introspection**; if nothing, say nothing about it."}}))  # arm:emit
+print(json.dumps({"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"You just handed work over: refine it (Method \u00a74, Refinement); report what you refined, under a final heading **Refinement**; if nothing, say nothing about it."}}))  # arm:emit
 '
 }
 
@@ -37,7 +37,7 @@ selftest() {
         { [ "$r" = 0 ] && [ ! -s "$d/out" ]; } || echo fails-open
         run "$(cl Bash '{"command":"git commit -m x"}')" | python3 -c 'import json,sys
 d=json.load(sys.stdin); h=d["hookSpecificOutput"]
-assert h["hookEventName"]=="PostToolUse" and "**Introspection**" in h["additionalContext"]      # Claude and Codex: context for the model
+assert h["hookEventName"]=="PostToolUse" and "**Refinement**" in h["additionalContext"]      # Claude and Codex: context for the model
 assert "decision" not in d and set(d)<={"continue","hookSpecificOutput","systemMessage","suppressOutput"} and set(h)<={"hookEventName","additionalContext"}   # never blocks, nothing for the user' 2>/dev/null || echo output-parses
     }
     for arm in $(arms "$0"); do echo "FAIL control: $arm"; bad=1; done
@@ -61,18 +61,27 @@ NEUTER
         inst_arms() { # inst_arms <function text>: names of the install arms that fail
             local k=/x/hooks.json:post_tool_use:0:0 c=$d/h/config.toml j=$d/s.json cmd="bash x" big; eval "$1"; CODEX_HOOKS=$d/h/hooks.json; mkdir -p "$d/h"
             big=$(python3 -c 'print("a"*3000)')
-            seed() { # seed <timeout> <matcher> <1 if a Stop entry runs our command>
-                local st='{"type":"command","command":"keep"}'; [ "${3:-0}" = 1 ] && st='{"type":"command","command":"bash x"},'$st
-                printf '{"env":{"big":"%s"},"hooks":{"PreToolUse":[{"x":1}],"PostToolUse":[{"matcher":"%s","hooks":[{"type":"command","command":"bash x","timeout":%s}]}],"Stop":[{"hooks":[%s]}]}}' "$big" "${2:-$HOOK_MATCHER}" "$1" "$st" > "$j"; cp "$j" "$j.0"; }
+            local old="bash /r/refine-instructions/introspect.sh"; cmd="bash /r/refine/refine.sh"
+            seed() { # seed <timeout> <matcher> <where the old introspect.sh entry sits: none, post, stop or both>
+                local po='' st='{"type":"command","command":"keep"}'
+                case ${3:-none} in post|both) po=',{"type":"command","command":"'"$old"'","timeout":30}';; esac
+                case ${3:-none} in stop|both) st='{"type":"command","command":"'"$old"'"},'$st;; esac
+                printf '{"env":{"big":"%s"},"hooks":{"PreToolUse":[{"x":1}],"PostToolUse":[{"matcher":"%s","hooks":[{"type":"command","command":"%s","timeout":%s}%s]}],"Stop":[{"hooks":[%s]}]}}' "$big" "${2:-$HOOK_MATCHER}" "$cmd" "$1" "$po" "$st" > "$j"; cp "$j" "$j.0"; }
             seed 0; hook_entry "$j" "$cmd" check 2>/dev/null && echo zero-timeout-refused
-            seed 30 "$HOOK_MATCHER" 1; hook_entry "$j" "$cmd" check 2>/dev/null && echo old-stop-entry-refused
+            seed 30 "$HOOK_MATCHER" stop; hook_entry "$j" "$cmd" check 2>/dev/null && echo old-stop-entry-refused
+            seed 30 "$HOOK_MATCHER" post; hook_entry "$j" "$cmd" check 2>/dev/null && echo old-posttool-entry-refused
             seed 30 Read; hook_entry "$j" "$cmd" check 2>/dev/null && echo wrong-matcher-refused
-            seed 0 "$HOOK_MATCHER" 1; hook_entry "$j" "$cmd" install 2>/dev/null; hook_entry "$j" "$cmd" check 2>/dev/null || echo zero-timeout-repaired
+            seed 0 "$HOOK_MATCHER" both; hook_entry "$j" "$cmd" install 2>/dev/null; hook_entry "$j" "$cmd" check 2>/dev/null || echo zero-timeout-repaired
             python3 -c 'import json,sys
-a=json.load(open(sys.argv[1])); b=json.load(open(sys.argv[1]+".0"))
-assert a["env"]==b["env"] and a["hooks"]["PreToolUse"]==b["hooks"]["PreToolUse"] and len(a["hooks"]["PostToolUse"])==1   # the rest survives
-assert a["hooks"]["Stop"]==[{"hooks":[{"type":"command","command":"keep"}]}]   # only our old Stop entry is gone' "$j" 2>/dev/null || echo install-keeps-the-rest-and-retires-the-old-stop
-            seed 30; ( ulimit -f 2; hook_entry "$j" "bash y" install ) 2>/dev/null; cmp -s "$j" "$j.0" || echo failed-write-leaves-original
+a=json.load(open(sys.argv[1])); b=json.load(open(sys.argv[1]+".0")); h=a["hooks"]
+cmds=[x["command"] for v in h.values() if isinstance(v,list) for g in v for x in g.get("hooks",[])]
+assert a["env"]==b["env"] and h["PreToolUse"]==b["hooks"]["PreToolUse"] and "keep" in cmds   # the rest survives
+assert [c for c in cmds if "refine.sh" in c]==[sys.argv[2]] and not [c for c in cmds if "introspect.sh" in c]   # exactly one refine.sh entry, no introspect.sh' "$j" "$cmd" 2>/dev/null || echo old-entries-healed-to-one-refine-entry
+            printf '{"hooks":{"PostToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"%s","timeout":30}]}]}}' "$old" > "$j"; hook_entry "$j" "$cmd" install 2>/dev/null
+            python3 -c 'import json,sys
+cmds=[x["command"] for g in json.load(open(sys.argv[1]))["hooks"]["PostToolUse"] for x in g["hooks"]]
+assert cmds==[sys.argv[2]]' "$j" "$cmd" 2>/dev/null || echo old-posttool-entry-alone-healed-to-one-refine-entry
+            seed 30; ( ulimit -f 2; hook_entry "$j" "bash /r/refine/refine.sh" install ) 2>/dev/null; cmp -s "$j" "$j.0" || echo failed-write-leaves-original
             printf 'original' > "$j"; put "$j" sh -c 'echo half; exit 1' 2>/dev/null; [ "$(cat "$j")" = original ] && [ ! -e "$j.tmp.$$" ] || echo failed-producer-leaves-original
             command -v codex >/dev/null || return 0
             # basic and literal multiline strings hold lines that look like the keys being written; they must come through untouched
@@ -93,7 +102,7 @@ b=tomllib.load(open(sys.argv[1]+".0","rb")); a=tomllib.load(open(sys.argv[1],"rb
 assert a["hooks"]["state"][k]=={"trusted_hash":"new","enabled":True}; a.pop("hooks"); b.pop("hooks")
 assert a==b' "$c" "$k" 2>/dev/null || echo config-write-changes-only-the-trust-table
         }
-        local fns; fns=$({ sed -n '/^put()/p' "$inst"; sed -n '/^HOOK_MATCHER=/,/^wire_hooks_introspect()/p' "$inst" | sed '$d'; })
+        local fns; fns=$({ sed -n '/^put()/p' "$inst"; sed -n '/^HOOK_MATCHER=/,/^wire_hooks_refine()/p' "$inst" | sed '$d'; })
         for arm in $(inst_arms "$fns"); do echo "FAIL control: $arm"; bad=1; done
         while IFS='~' read -r from to want; do
             got=$(inst_arms "$(printf '%s
@@ -105,7 +114,9 @@ assert a==b' "$c" "$k" 2>/dev/null || echo config-write-changes-only-the-trust-t
  and h.get("timeout")==30~~zero-timeout-refused
  and g.get("matcher")==matcher~~wrong-matcher-refused
 ^leftover=.*~leftover=False~old-stop-entry-refused
-for g in hk.get("Stop",\[\]): g\["hooks"\]=~for g in []: g["hooks"]=~install-keeps-the-rest-and-retires-the-old-stop
+^leftover=.*~leftover=False~old-posttool-entry-refused
+^        for g in keep:$~        for g in []:~old-entries-healed-to-one-refine-entry
+^        else: hk.*~        else: hk[k]=keep~old-posttool-entry-alone-healed-to-one-refine-entry
 t=f+".tmp"~t=f~failed-write-leaves-original
 "\$@" > "\$tmp"~{ "$@"; true; } > "$tmp"~failed-producer-leaves-original
 NEUTER
@@ -114,5 +125,5 @@ NEUTER
 }
 
 [ "${1-}" = "--selftest" ] && { selftest; exit $?; }
-decide || echo "introspect.sh: failed, allowing silently" >&2  # arm:open
+decide || echo "refine.sh: failed, allowing silently" >&2  # arm:open
 exit 0

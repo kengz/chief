@@ -61,7 +61,7 @@ Plan a small step, build it, check it, land it, learn, repeat: progress is itera
 
 ## 4. Refinement: how knowledge improves [every principle]
 
-Any body of knowledge, these instructions first, iterates too: one body, tested by evidence. Two acts drive it, unprompted: introspect and unify. For the instructions, Chief proposes and the `refine-instructions` skill is the procedure.
+Any body of knowledge, these instructions first, iterates too: one body, tested by evidence. Two acts drive it, unprompted: introspect and unify. For the instructions, Chief proposes and the `refine` skill is the procedure.
 
 1. **Introspect** unprompted before calling any work done, and whenever work comes to a stop: test it, and all it leaves behind, as you would test others', against every principle. Fix each shortfall and name it in the fix's `Anomaly:` trailer.
 2. **Classify** it: a misapplied rule gets a check, a wrong or missing rule is refined, and a misfit principle or premise goes to the founder.
@@ -152,7 +152,7 @@ The steps of Iteration, from plan to `main`.
 
 1. **`AGENTS.md`:** the rules, identical across providers.
 2. **The toolkit:** the skills (the procedures, in the cross-provider standard `.agents/skills/`; Claude mirrors it), their scripts, the Git hooks, the agent definitions and `install.sh`. A file comes before a skill, and a script only for what is mechanical; every change is reviewed, and the toolkit's size is measured so it shrinks as it learns.
-3. **History:** git history and its trailers (`Anomaly:`, `Provisional:`, `Verdict:`, `Refinement-pass:`). The instructions state the current rule; the incident behind it lives in history.
+3. **History:** git history and its trailers (`Anomaly:`, `Refined:`, `Provisional:`, `Verdict:`, `Refinement-pass:`). The instructions state the current rule; the incident behind it lives in history.
 4. **Portable:** the same for every provider and every box, resumable from the repo alone. Discover each provider's capabilities at runtime, never infer a cross-provider equivalent, and keep the whole chain of nested `AGENTS.md` files under the provider's limit.
 5. **Projects:** a project's `AGENTS.md` holds its lead-scoped Institution and a short project section. Principles, Premises, Method and Codification reach it through the global instructions and are never copied in, and its `CLAUDE.md` is exactly `@AGENTS.md`. The `lead-role` skill sets up a new project.
 
