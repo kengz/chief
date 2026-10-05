@@ -18,7 +18,7 @@ You are the founder. Chief is a long-running session that holds the purpose of e
     2. `records`: the records and the daily planner run.
     3. `lead-role`: what a project's lead session owns, plus a deck kit for progress decks.
     4. `refine`: measuring the work and improving the rules from evidence; its `refine.sh` is the quiet hook that, after work lands (a commit, push or merge), asks a session to refine it; `eval.sh` tests by hand that the model then acts only when needed.
-4. **Agents** in `.claude/agents/`: `engineer`, `verifier`, `challenger` and `planner-runner`.
+4. **Agents** in `.agents/agents/`, which Claude mirrors: `engineer`, `verifier`, `challenger` and `planner-runner`.
 5. **Records** in `records/`: the work list and the approvals. `planner.md` and `projects/` are small templates for the founder's day and project cards.
 6. **Guards** in `.githooks/`:
     1. `commit-msg` requires a fix commit to name its anomaly.

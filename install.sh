@@ -5,7 +5,7 @@
 #   ./install.sh --check          verify only, change nothing
 #   ./install.sh --write-manifest re-bless the shipping set after editing it
 #
-# 1. Skills (.agents/skills) and agents (.claude/agents) are copied to ~/.claude so every repo
+# 1. Skills (.agents/skills) and agents (.agents/agents) are copied to ~/.claude so every repo
 #    sees them, and to ~/.agents/skills and ~/.codex/agents for Codex (agents as TOML).
 # 2. The shipping set is enumerated from git, never hand-listed, so a skill added later ships.
 # 3. The reference is the committed manifest (.agents/toolkit-manifest.txt), not the working
@@ -35,7 +35,7 @@ CODEX_AGENTS="${CODEX_AGENTS:-$HOME/.codex/agents}"
 put() { local f=$1 tmp="$1.tmp.$$"; shift; "$@" > "$tmp" && mv "$tmp" "$f" || { rm -f "$tmp"; return 1; }; }
 manifest_lines() { ( cd "$ROOT" && shipping_set | sort | xargs sha256sum ); }
 skill_dirs()  { git -C "$ROOT" ls-files -- .agents/skills | awk -F/ 'NF>=4 {print $1"/"$2"/"$3}' | sort -u; }
-agent_files() { git -C "$ROOT" ls-files -- .claude/agents; }
+agent_files() { git -C "$ROOT" ls-files -- .agents/agents; }
 
 case "${1-}" in
     ""|--check|--write-manifest) ;;
@@ -67,7 +67,7 @@ shipping_set() {
 
 write_manifest() {
     # An untracked file in a shipping folder is left out of the manifest, then ships unblessed once added.
-    u=$(git -C "$ROOT" ls-files --others --exclude-standard -- .agents/skills .claude/agents)
+    u=$(git -C "$ROOT" ls-files --others --exclude-standard -- .agents/skills .agents/agents)
     [ -z "$u" ] || { echo "untracked files in the shipping folders; git add them first:"; echo "$u" | sed 's/^/    /'; return 1; }
     put "$MANIFEST" manifest_lines || return 1
     echo "manifest written: $(wc -l < "$MANIFEST") files. Commit it — it is what every check measures against."
@@ -171,9 +171,9 @@ install_files() {
 # installed file is byte-identical to a version git tracked, so an agent from another installer is never touched.
 retired_agents() {
     local f name blobs
-    git -C "$ROOT" log --no-renames --diff-filter=D --name-only --format= -- .claude/agents 2>/dev/null | sort -u | while read -r f; do
+    git -C "$ROOT" log --no-renames --diff-filter=D --name-only --format= -- .claude/agents .agents/agents 2>/dev/null | sort -u | while read -r f; do
         name=$(basename "$f" .md)
-        agent_files | grep -qxF -- "$f" && continue
+        agent_files | grep -qxF -- ".agents/agents/$name.md" && continue
         [ -f "$DEST/agents/$name.md" ] || continue
         blobs=$(git -C "$ROOT" log --no-renames --format= --raw --no-abbrev -- "$f" | awk '{print $3; print $4}')
         printf '%s\n' "$blobs" | grep -qxF -- "$(git hash-object "$DEST/agents/$name.md")" && echo "$name"
@@ -217,7 +217,7 @@ verify_install() {
     while read -r sum path; do
         case "$path" in
             .agents/skills/*) rel="${path#.agents/skills/}"; set -- "$DEST/skills/$rel" "$CODEX_SKILLS/$rel" ;;
-            .claude/agents/*) set -- "$DEST/agents/${path#.claude/agents/}" ;;
+            .agents/agents/*) set -- "$DEST/agents/${path#.agents/agents/}" ;;
             *) continue ;;
         esac
         for d in "$@"; do
@@ -239,7 +239,7 @@ verify_install() {
     # An installed agent the repo does not ship (Chief-only, or deleted upstream and never pruned) still loads.
     for d in "$DEST"/agents/*.md; do
         [ -f "$d" ] || continue
-        agent_files | grep -qx ".claude/agents/$(basename "$d")" \
+        agent_files | grep -qx ".agents/agents/$(basename "$d")" \
             || { echo "STRAY AGENT: $d is not shipped by this repo — delete it"; fail=1; }
     done
 
@@ -422,7 +422,7 @@ check_rule_budget() {
 check_retired_names() {
     local list="$ROOT/.agents/retired-names" hits
     [ -f "$list" ] || { echo "RETIRED NAMES LIST MISSING: $list"; return 1; }
-    hits=$(cd "$ROOT" && git ls-files -- AGENTS.md .agents .githooks install.sh .claude/agents | grep -vx '.agents/retired-names' \
+    hits=$(cd "$ROOT" && git ls-files -- AGENTS.md .agents .githooks install.sh | grep -vx '.agents/retired-names' \
         | xargs grep -nHFf .agents/retired-names 2>/dev/null | grep -v 'retired-ok')
     [ -z "$hits" ] || { echo "RETIRED NAME IN USE:"; printf '%s\n' "$hits" | sed 's/^/    /'; return 1; }
     echo "retired names: none in use"

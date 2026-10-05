@@ -146,7 +146,7 @@ done
 size() { # size <rev> prints "files lines skillwords"; fails if the revision or any blob cannot be read
   local list f nf=0 nl=0 nw=0 tmp
   git -C "$chief" rev-parse -q --verify "$1^{commit}" >/dev/null || return 1
-  list=$(git -C "$chief" ls-tree -r --name-only "$1" -- .agents .githooks install.sh .claude/agents) || return 1
+  list=$(git -C "$chief" ls-tree -r --name-only "$1" -- .agents .githooks install.sh) || return 1
   tmp=$(mktemp) || return 1
   for f in $list; do
     git -C "$chief" show "$1:$f" > "$tmp" || { rm -f "$tmp"; return 1; }   # a file, so trailing newlines count

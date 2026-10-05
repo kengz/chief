@@ -320,7 +320,7 @@ agents_guard() {
       echo "chief AGENTS.md guard: could not read the landing commit — refusing rather than guessing" >&2; return 1; }
     # Chief's toolkit changes only with a review, as any work does (AGENTS Delivery 14): the landing
     # commit names the review that cleared the range in a parsed trailer.
-    if [ -n "$chief" ] && printf '%s\n' "$files" | grep -qE '^"?(\.agents/|\.githooks/|install\.sh$|\.claude/agents/)' \
+    if [ -n "$chief" ] && printf '%s\n' "$files" | grep -qE '^"?(\.agents/|\.githooks/|install\.sh$)' \
        && ! printf '%s\n' "$trailers" | grep -qE '^Reviewed-by: *[^ ]'; then
       echo "chief review guard: the push to main changes the toolkit and its landing commit $(git log -1 --format=%h\ %s "$lsha") has no Reviewed-by: trailer naming the review that cleared it (AGENTS Delivery 14)" >&2
       return 1

@@ -22,7 +22,7 @@ Per-record details:
 
 ## The planner run
 
-[`planner-runner`](../../../.claude/agents/planner-runner.md) writes the planner. It runs when a Chief session starts its day, never from a timer (Dispatch rule 9). The caller's rules:
+[`planner-runner`](../../agents/planner-runner.md) writes the planner. It runs when a Chief session starts its day, never from a timer (Dispatch rule 9). The caller's rules:
 
 1. **Never run it as a `/goal`:** a recurring chore must not take over the session's stop condition.
 2. Launch it in the background, do not block, and relay it in the runner's order, glance sections only.
