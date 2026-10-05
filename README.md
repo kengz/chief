@@ -17,7 +17,7 @@ You are the founder. Chief is a long-running session that holds the purpose of e
     1. `fleet`: driving persistent sessions across boxes.
     2. `records`: the records and the daily planner run.
     3. `lead-role`: what a project's lead session owns, plus a deck kit for progress decks.
-    4. `refine`: measuring the work and improving the rules from evidence; its `refine.sh` is the quiet hook that, after a hand-over, asks a session to refine what it handed over.
+    4. `refine`: measuring the work and improving the rules from evidence; its `refine.sh` is the quiet hook that, after work lands (a commit, push or merge), asks a session to refine it; `eval.sh` tests by hand that the model then acts only when needed.
 4. **Agents** in `.claude/agents/`: `engineer`, `verifier`, `challenger` and `planner-runner`.
 5. **Records** in `records/`: the work list and the approvals. `planner.md` and `projects/` are small templates for the founder's day and project cards.
 6. **Guards** in `.githooks/`:
@@ -35,8 +35,8 @@ You need `git`, `rsync`, `find`, `cmp`, `sha256sum` (or `shasum`) and `bash`.
     3. sets `core.hooksPath` to `.githooks` so the guards run;
     4. checks every file against `.agents/toolkit-manifest.txt`;
     5. checks each instruction file against its word ceiling in `.agents/rule-budget`;
-    6. wires the introspection hook (a quiet PostToolUse hook after hand-overs) in Claude and Codex.
-3. Prove it with `./install.sh --check`. It changes nothing and exits 0 only when everything matches.
+    6. wires the refine hook (a quiet PostToolUse hook after a commit, push or merge) in Claude and Codex.
+3. Prove it with `./install.sh --check`. It changes nothing and exits 0 only when everything matches, including that no name in `.agents/retired-names` is still in use.
 4. Open Claude Code in this folder. The session is Chief.
 
 An existing `~/.claude/CLAUDE.md` that you wrote by hand is left alone; the installer only replaces files it generated.

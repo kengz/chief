@@ -19,7 +19,7 @@ The tool is yours to choose. This skill assumes it offers the verbs below; renam
 3. **A brief is a contract:**
     1. objective and frozen bar;
     2. a size check in the first 30 minutes;
-    3. before the ready line, one fresh challenger seat and the project's quick checks; a wording finding gives its replacement text;
+    3. before the `ready-for-gates` line, one fresh challenger seat and the project's quick checks; a wording finding gives its replacement text;
     4. who instructs the lane;
     5. two closing lines, each ending the goal, and the brief says printing either one meets it: `ready-for-gates <commit>` while a gate is owed (its head commit carries a non-empty `Refined:` trailer, or the gate refuses), else `blocked <commit> — <reason>`.
 
@@ -49,7 +49,7 @@ The tool is yours to choose. This skill assumes it offers the verbs below; renam
     - A process by its launch PID (`$!`), never `pkill -f` or `pgrep -f`, which match other lanes.
     - A worktree or clone, removed only by a script that first checks nothing would be lost.
     - A prompt by its text, never its position; confirm the cursor's answer with `capture-pane`, then Enter.
-    - A project's owner by `map`, before picking a box.
+    - An owner by where its work sits, never a similar name: a project's `map` row by its workdir; a branch's lane by the worktree holding it.
     - A box's repo by its recorded working directory; a reassignment that skips it leaves the box `ready` against old instructions.
     - A gate by the exact candidate, by branch, reviewed in a sandbox; every seat's report, either provider, is published. A safety refusal moves it to a fresh seat of the other provider, recorded; never reword and retry.
 
@@ -68,11 +68,9 @@ The tool is yours to choose. This skill assumes it offers the verbs below; renam
 11. **If the checkout is synced to every box by a file-sync tool, a worktree edit lands on all.** Never `git stash` or `checkout` on a remote.
     - Dirty files are usually the sync beating `git pull`. If none is unpushed and each matches `origin/main`, `git reset origin/main` moves HEAD and the index, never a file. Then check `git status` on every checkout.
 12. **A generated file never merges:** take either side of a conflict, then re-run the installer, which rewrites it from its sources.
-13. **One script keeps Chief boxes current and notifies the others; finish it yourself:**
-    1. reach `origin/main`, refusing staged changes and archiving each dirty file before restoring it;
-    2. run `./install.sh`;
-    3. clear what it leaves: an old-layout folder or a `NOTE`d skill that is ours is archived, then deleted;
-    4. done only when `./install.sh --check` exits 0 with no `NOTE` (project settings can still switch hooks off; none does). Report only what needs the founder.
+13. **One script keeps Chief boxes current:** it syncs to `origin/main`, installs, checks and notifies the other Chiefs. Finish what it cannot:
+    1. clear what the install leaves: an old-layout folder or a `NOTE`d skill that is ours is archived, then deleted;
+    2. done only when `./install.sh --check` exits 0 with no `NOTE`. Report only what needs the founder.
 
 ## 7. A new box
 

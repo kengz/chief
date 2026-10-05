@@ -119,7 +119,7 @@ How work reaches sessions across our boxes; the `fleet` skill holds how to opera
 The steps of Iteration, from plan to `main`.
 
 11. **Plan** with the Algorithm, using the cheapest capable model or person. Raise another owner's requirement with them; never drop it.
-12. **Bar first:** what done means, checks shown to fail on broken work, and a cap. A step lands within a day and a reviewer follows it in one sitting; hold at most two open per owner.
+12. **Bar first:** what done means, checks shown to fail on broken work and run once where the work will run, and a cap. A step lands within a day and a reviewer follows it in one sitting; hold at most two open per owner.
 13. **Build:** one command runs the bar on every push and gates landing. Push every working commit, so the work is portable; unfinished work lands switched off.
 14. **Check:** someone other than the builder reviews it, started by the level above or a peer.
     1. **Verifier:** is it right and clear? The logic, every number and citation, whether an outsider could apply it, and what can go.

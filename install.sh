@@ -271,7 +271,7 @@ wire_hooks() {
     local want=.githooks have
     [ -x "$ROOT/$want/pre-push" ] || { echo "NOT CHECKED: no $want/pre-push here, so no push guard to wire"; return 0; }
     have="$(git -C "$ROOT" config core.hooksPath || true)"
-    if [ "$have" = "$want" ]; then
+    if [ "$have" = "$want" ] || [ "$have" = "$ROOT/$want" ]; then  # an agent worktree writes the absolute form; both run this guard
         echo "the push guard is wired: core.hooksPath is $want"
     elif [ "${1-}" = "--check" ]; then
         echo "PUSH GUARD OFF: core.hooksPath is ${have:-unset}, so $want/pre-push never runs — install to wire it"
@@ -285,13 +285,13 @@ wire_hooks() {
     fi
 }
 
-# THE REFINE HOOK (Method section 4, Refinement) is a PostToolUse hook in both providers, matched to the handover tools. Claude lists it in
+# THE REFINE HOOK (Method section 4, Refinement) is a PostToolUse hook in both providers, matched to the shell tool. Claude lists it in
 # settings.json; Codex lists it in hooks.json and runs only hooks it has trusted, by a hash only Codex computes, so the install
 # records the hash Codex reports in its config.toml. --check: present, synchronous, matched, timed, not disabled, trusted, and no
-# no entry left under the hook's old name introspect.sh, under any event. Limit: project settings can still switch hooks off; --check certifies only what the install controls.
+# entry left under the hook's old name, under any event. Limit: project settings can still switch hooks off; --check certifies only what the install controls.
 CODEX_HOOKS="${CODEX_HOOKS:-$HOME/.codex/hooks.json}"
-HOOK_MATCHER="Bash|SendMessage|send_message|followup_task|spawn_agent"
-hook_entry() { # hook_entry <file> <command> <install|check>: a synchronous, matched PostToolUse hook runs the command, no entry under the old name introspect.sh remains, hooks are not disabled; install makes it so
+HOOK_MATCHER="Bash"
+hook_entry() { # hook_entry <file> <command> <install|check>: a synchronous, matched PostToolUse hook runs the command, no entry under the hook's old name remains, hooks are not disabled; install makes it so
     python3 - "$@" "$HOOK_MATCHER" <<'PY'
 import json,os,sys
 f,cmd,mode,matcher=sys.argv[1:5]
@@ -300,7 +300,7 @@ except FileNotFoundError: d={}
 if d.get("disableAllHooks"): print("disableAllHooks is true in "+f); sys.exit(1)
 hk=d.setdefault("hooks",{}); ev=hk.setdefault("PostToolUse",[])
 runs=lambda h: h.get("command")==cmd
-isold=lambda h: "refine-instructions/introspect.sh" in str(h.get("command"))  # the hook's old name and place, under any event
+isold=lambda h: "refine-instructions/introspect.sh" in str(h.get("command"))  # the hook's old name and place, under any event; retired-ok
 leftover=any(isold(h) for v in hk.values() if isinstance(v,list) for g in v for h in g.get("hooks",[]))
 mine=[(g,h) for g in ev for h in g.get("hooks",[]) if runs(h)]
 if mode=="install":
@@ -347,7 +347,7 @@ wire_hooks_refine() {
     local claude_cmd="bash \"$DEST/skills/refine/refine.sh\"" codex_cmd="bash \"$CODEX_SKILLS/refine/refine.sh\""
     [ "$mode" = install ] && { mkdir -p "$DEST" "$(dirname "$CODEX_HOOKS")" || return 1; }
     hook_entry "$DEST/settings.json" "$claude_cmd" "$mode" && hook_entry "$CODEX_HOOKS" "$codex_cmd" "$mode" \
-        || { echo "REFINE HOOK OFF: $DEST/settings.json or $CODEX_HOOKS lacks a synchronous, matched PostToolUse hook running refine.sh, still has one under the old name introspect.sh, or has hooks disabled — install to wire it"; return 1; }
+        || { echo "REFINE HOOK OFF: $DEST/settings.json or $CODEX_HOOKS lacks a synchronous, matched PostToolUse hook running refine.sh, still has one under its old name, or has hooks disabled — install to wire it"; return 1; }
     if command -v codex >/dev/null; then
         read -r key hash trust enabled async <<< "$(codex_hook_trust "$codex_cmd")"
         if [ "$mode" = install ] && { [ "$trust" != trusted ] || [ "$enabled" != True ]; } && [ -n "$key" ]; then
@@ -357,7 +357,7 @@ wire_hooks_refine() {
         [ "$trust" = trusted ] && [ "$enabled" = True ] && [ "$async" = False ] \
             || { echo "REFINE HOOK NOT RUNNING IN CODEX: trust ${trust:-unknown}, enabled ${enabled:-unknown}, async ${async:-unknown} — install to trust it, or review it in Codex if it says modified"; return 1; }
     else echo "NOT CHECKED: no codex here, so its hook trust is unverified"; fi
-    echo "the refine hook runs after handover tools in Claude ($DEST/settings.json) and Codex ($CODEX_HOOKS)"
+    echo "the refine hook runs after landing commands in Claude ($DEST/settings.json) and Codex ($CODEX_HOOKS)"
 }
 
 # The global core is generated from AGENTS.md, the one hand-edited source: it becomes ~/.claude/PRINCIPLES.md and the Codex global.
@@ -418,10 +418,21 @@ check_rule_budget() {
     return "$fail"
 }
 
+# Names the repo renamed away may live on only where a line says retired-ok (a migration that must name what it removes).
+check_retired_names() {
+    local list="$ROOT/.agents/retired-names" hits
+    [ -f "$list" ] || { echo "RETIRED NAMES LIST MISSING: $list"; return 1; }
+    hits=$(cd "$ROOT" && git ls-files -- AGENTS.md .agents .githooks install.sh .claude/agents | grep -vx '.agents/retired-names' \
+        | xargs grep -nHFf .agents/retired-names 2>/dev/null | grep -v 'retired-ok')
+    [ -z "$hits" ] || { echo "RETIRED NAME IN USE:"; printf '%s\n' "$hits" | sed 's/^/    /'; return 1; }
+    echo "retired names: none in use"
+}
+
 prerequisites || exit 1
 [ "${1-}" = "--write-manifest" ] && { write_manifest; exit $?; }
 check_repo || exit 1
 check_rule_budget || exit 1
+check_retired_names || exit 1
 [ "${1-}" = "--check" ] || { install_files && install_globals; } || { echo "install failed — nothing verified"; exit 1; }
 # Wiring the guard comes before verifying: an unrelated drift must not leave it unwired or hide that it is off.
 wire_hooks "${1-}"; wired=$?

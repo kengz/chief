@@ -12,15 +12,13 @@ description: Chief's records — where each lives under records/, the work list,
 | work list | [`records/WORK_LIST.md`](../../../records/WORK_LIST.md) |
 | approvals | [`records/approvals/`](../../../records/approvals/): `boxes.md` and the live approvals |
 | planner | `planner.md`, in the vault |
-| where projects run | the fleet tool's `map` command (its configuration, not a record) |
 
 Per-record details:
 
 1. `boxes.md` is in git, so it carries purpose, scope, owner, validation state and evidence; the transport's own configuration stays on the machine.
-2. Resolve a project's owner with `map` before picking a box; a vault page can name a box the map retired.
-3. A dispatch is a work-list row written when it is sent, carrying the brief's path and the lane; a reversal edits that row in place.
-4. The planner: Chief updates it at project milestones and coordinates any concurrent edit; it is archived by its `updated` date, so a skipped day leaves an honest gap.
-5. `records/planner-last-run` is the planner run's anchor, overwritten whole.
+2. Edit a record only after syncing to `origin/main` (the vault delivers other Chiefs' edits). A dispatch is a work-list row written when it is sent, carrying the brief's path and the lane; a reversal edits that row in place.
+3. The planner: Chief updates it at milestones; it is archived by its `updated` date, so a skipped day leaves an honest gap.
+4. `records/planner-last-run` is the planner run's anchor, overwritten whole.
 
 ## The planner run
 
@@ -30,7 +28,7 @@ Per-record details:
 2. Launch it in the background, do not block, and relay it in the runner's order, glance sections only.
 3. Act on intel, never relay it: dispatch what is material to the project it touches, in this turn.
 4. Checked `[x]` items are removed from the planner and echoed in the report, never kept. If the sweep collides with the founder's own check-off, the check stands (the item is cleared, not restored). Bump the frontmatter `updated` stamp in one atomic edit and let it re-upload.
-5. **A project card shows landings by slice:** each roadmap slice, ticked with its landing date only when the whole slice is on main, an open one with a few words of state. Follow-ons, fixes, cleanups, hashes and measures stay in the work list.
+5. **A project card shows landings by slice:** each roadmap slice, ticked with its landing date only when the whole slice is on main, ticked in the same step as reading that landing, an open one with a few words of state. Follow-ons, fixes, cleanups, hashes and measures stay in the work list.
 
 ## Meters
 

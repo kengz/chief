@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
-# PostToolUse hook for Claude and Codex (Method section 4): after a handover action it adds one sentence of context for the
-# model: refine it, and report only what was found or changed. A handover is a shell command containing git commit, push, merge or
-# rebase or a fleet tool send or goal, or a message to another session. It never blocks, shows the user nothing, keeps no
+# PostToolUse hook for Claude and Codex: Method section 4 says when to refine. After work lands, a shell command
+# containing git commit, push or merge, it adds
+# one sentence of context for the model. It never blocks, shows the user nothing, keeps no
 # state, and reads no Git, files or network. Any error of its own allows silently.
 # refine.sh --selftest   runs seeded controls, each shown failing against a neutered copy.
 decide() {
     python3 -c 'import json,re,sys
 d=json.load(sys.stdin); name=d.get("tool_name") or ""; cmd=str((d.get("tool_input") or {}).get("command") or "")
-SH=re.compile(r"git\s+(commit|push|merge|rebase)\b|[a-z-]*fleet[a-z-]*\s+(send|goal)\b")  # arm:shell
-SEND={"SendMessage","send_message","followup_task","spawn_agent"}  # arm:send
-if not (name in SEND or (name=="Bash" and SH.search(cmd))): sys.exit(0)
-print(json.dumps({"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"You just handed work over: refine it (Method \u00a74, Refinement); report what you refined, under a final heading **Refinement**; if nothing, say nothing about it."}}))  # arm:emit
+# Never git merge-base, merge-tree or a dry run.
+SH=re.compile(r"git\s+(commit|push|merge)(?![-\w])(?![^;&|\n]*--dry-run)")  # arm:shell
+if not (name=="Bash" and SH.search(cmd)): sys.exit(0)  # arm:gate
+print(json.dumps({"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"Work landed: if it left a shortfall, including what restates it, refine it by Method \u00a74, taking each step it needs (the refine skill lists all six and when each runs); report only what you changed, under a final heading **Refinement**; if nothing needed it, say nothing."}}))  # arm:emit
 '
 }
 
@@ -24,15 +24,15 @@ selftest() {
     arms() {
         S=$1
         for p in cl cx; do
-            for c in "git commit -m x" "git add -A && git push origin main" "fleet-tool send box hi" "fleet-tool goal box x"; do
+            for c in "git commit -m x" "git add -A && git push origin main" "git merge x"; do
                 [ -n "$(run "$($p Bash "{\"command\":\"$c\"}")")" ] || echo "fires-$p-$c"
             done
-            for c in "cat README.md" "git status" "git log -3"; do [ -z "$(run "$($p Bash "{\"command\":\"$c\"}")")" ] || echo "silent-$p-$c"; done
+            for c in "cat README.md" "git status" "git log -3" "git rebase main" "fleet-tool send box hi" "fleet-tool goal box x" "git merge-base a b" "git merge-tree a b" "git commit --dry-run"; do [ -z "$(run "$($p Bash "{\"command\":\"$c\"}")")" ] || echo "silent-$p-$c"; done
             [ -z "$(run "$($p Read '{"file_path":"/a"}')")" ] || echo "silent-$p-read"
             [ -z "$(run "$($p Edit '{"file_path":"/a"}')")" ] || echo "silent-$p-edit"
         done
-        [ -n "$(run "$(cl SendMessage '{"to":"a","message":"hi"}')")" ] || echo fires-cl-send
-        [ -n "$(run "$(cx send_message '{"target":"/root","message":"hi"}')")" ] || echo fires-cx-send
+        [ -z "$(run "$(cl SendMessage '{"to":"a","command":"git commit"}')")" ] || echo silent-cl-send
+        [ -z "$(run "$(cx send_message '{"target":"/root","command":"git commit"}')")" ] || echo silent-cx-send
         printf 'garbage' | bash "$S" >"$d/out" 2>"$d/err"; r=$?
         { [ "$r" = 0 ] && [ ! -s "$d/out" ]; } || echo fails-open
         run "$(cl Bash '{"command":"git commit -m x"}')" | python3 -c 'import json,sys
@@ -51,8 +51,7 @@ assert "decision" not in d and set(d)<={"continue","hookSpecificOutput","systemM
 shell~SH=re.compile("^$")~fires-cl-git commit -m x
 shell~SH=re.compile(".")~silent-cl-cat README.md
 shell~SH=re.compile("git")~silent-cl-git status
-send~SEND=set()~fires-cl-send
-send~SEND=set()~fires-cx-send
+gate~if not SH.search(cmd): sys.exit(0)~silent-cl-send
 emit~print(json.dumps({"decision":"block","reason":"x"}))~output-parses
 open~    decide || exit 1~fails-open
 NEUTER
@@ -61,8 +60,8 @@ NEUTER
         inst_arms() { # inst_arms <function text>: names of the install arms that fail
             local k=/x/hooks.json:post_tool_use:0:0 c=$d/h/config.toml j=$d/s.json cmd="bash x" big; eval "$1"; CODEX_HOOKS=$d/h/hooks.json; mkdir -p "$d/h"
             big=$(python3 -c 'print("a"*3000)')
-            local old="bash /r/refine-instructions/introspect.sh"; cmd="bash /r/refine/refine.sh"
-            seed() { # seed <timeout> <matcher> <where the old introspect.sh entry sits: none, post, stop or both>
+            local old="bash /r/refine-instructions/introspect.sh"; cmd="bash /r/refine/refine.sh"  # retired-ok
+            seed() { # seed <timeout> <matcher> <where the old hook entry sits: none, post, stop or both>
                 local po='' st='{"type":"command","command":"keep"}'
                 case ${3:-none} in post|both) po=',{"type":"command","command":"'"$old"'","timeout":30}';; esac
                 case ${3:-none} in stop|both) st='{"type":"command","command":"'"$old"'"},'$st;; esac
@@ -76,7 +75,7 @@ NEUTER
 a=json.load(open(sys.argv[1])); b=json.load(open(sys.argv[1]+".0")); h=a["hooks"]
 cmds=[x["command"] for v in h.values() if isinstance(v,list) for g in v for x in g.get("hooks",[])]
 assert a["env"]==b["env"] and h["PreToolUse"]==b["hooks"]["PreToolUse"] and "keep" in cmds   # the rest survives
-assert [c for c in cmds if "refine.sh" in c]==[sys.argv[2]] and not [c for c in cmds if "introspect.sh" in c]   # exactly one refine.sh entry, no introspect.sh' "$j" "$cmd" 2>/dev/null || echo old-entries-healed-to-one-refine-entry
+assert [c for c in cmds if "refine.sh" in c]==[sys.argv[2]] and not [c for c in cmds if "introspect" in c]   # exactly one refine.sh entry, no old entry' "$j" "$cmd" 2>/dev/null || echo old-entries-healed-to-one-refine-entry
             printf '{"hooks":{"PostToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"%s","timeout":30}]}]}}' "$old" > "$j"; hook_entry "$j" "$cmd" install 2>/dev/null
             python3 -c 'import json,sys
 cmds=[x["command"] for g in json.load(open(sys.argv[1]))["hooks"]["PostToolUse"] for x in g["hooks"]]
