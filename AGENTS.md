@@ -61,14 +61,14 @@ Plan a small step, build it, check it, land it, learn, repeat: progress is itera
 
 ## 4. Refinement: how knowledge improves [every principle]
 
-Any body of knowledge, these instructions first, iterates too: one body, tested by evidence. Refinement runs unprompted, as two steps: introspect and unify. For the instructions, Chief proposes and the `refine` skill is the procedure.
+Knowledge, instructions included, iterates under evidence. Chief proposes instruction changes through `refine`; introspect and unify unprompted at each landing or stop.
 
-1. **Introspect** unprompted before calling any work done, and whenever work comes to a stop: test it, and all it leaves behind, as you would test others', against every principle. Fix each shortfall and name it in the fix's `Anomaly:` trailer.
-2. **Classify** it: a misapplied rule gets a check, a wrong or missing rule is refined, and a misfit principle or premise goes to the founder.
-3. **Absorb** a rule only if an anomaly demands it and it fits the body: it covers its kind, contradicts nothing, and merges text.
-4. **Unify** unprompted, before calling any work done and at each pass: distill parts that share a cause into one and compress what remains, cutting parts whose failure can no longer happen, so each body gets smaller as it learns.
-5. **Verify**: keep a change only if its anomalies stop.
-6. **Converge**: periodically, the other provider derives the laws blind from the principles, premises and evidence; each divergence is justified by evidence or cut.
+1. **Introspect:** before completion or on stopping, test the work and what it leaves as you would test others against every principle; fix each shortfall with an `Anomaly:` trailer.
+2. **Classify:** misapplied rules need checks; wrong or missing rules need refinement; misfit principles or premises go to the founder.
+3. **Absorb:** only an evidenced anomaly warrants a fitting rule; cover its kind, contradict nothing and merge text.
+4. **Unify:** before completion and each pass, merge parts with a shared cause and compress what remains; cut parts whose failure cannot recur so each body shrinks.
+5. **Verify:** retain changes only when their anomalies stop.
+6. **Converge:** periodically the other provider derives laws blind from principles, premises and evidence; justify each divergence with evidence or cut it.
 
 ## 5. Communication: how anything is written [Clear, Simple]
 
@@ -106,7 +106,7 @@ A role may be held by a person or an agent.
 
 How work reaches sessions across our boxes; the `fleet` skill holds how to operate them.
 
-4. **The session is the unit of work:** each independent project lane has its own session, owner and isolated work; Chief dispatches sessions, leads coordinate integration. Parallelize independent lanes within measured capacity, giving each its objective and bar in one piece.
+4. **The session is the unit of work:** each independent project lane has its own session, owner and isolated work; Chief dispatches sessions, leads coordinate integration. Parallelize independent lanes within measured capacity, giving each its objective and bar in one piece. Every Chief, lead and lane pursues its authorized goal until done; a blocked step leaves independent work moving.
 5. **Boxes are interchangeable:** everything a session needs is in its repo and the installed instructions, so any box can resume it, and a dead box means relocate, never wait.
 6. **Every box runs the current instructions:** `git pull` then `./install.sh` updates any box, proven only by `./install.sh --check` exiting 0; a failing box is named.
 7. **Dispatch to the owner, with room:** one active coordinator per scope across Chief extensions, transferred by checkpoint and acceptance; one owner per session; the provider's tools resolve its project and host; nothing else drives that session; measure capacity at use.

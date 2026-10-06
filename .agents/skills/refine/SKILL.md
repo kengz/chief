@@ -7,12 +7,6 @@ description: "The procedure for Refinement and the Iteration measure: at every l
 
 Method §4's six steps; take each the work needs. Introspect, fix and unify at every landing, the rest weekly.
 
-1. **Introspect and fix** (§2).
-2. **Classify** (§2).
-3. **Absorb** (§3).
-4. **Unify** (§3).
-5. **Verify** (§4).
-6. **Converge** (§4).
 
 ## 1. Measure, from the repo
 
