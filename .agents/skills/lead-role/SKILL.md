@@ -28,7 +28,7 @@ The global core loads in every repo, Chief's Institution does not: the project's
 
 8. Four conditions and no others: a decision belongs above, a material result lands, you are blocked, or a claim you reported turns out wrong. Routine progress is not a report. (copy, chief)
 9. Escalate exactly one level. No answer within a working cycle and you decide it yourself, recording that reading in the artifact as an assumption.
-10. Idle is a defect, not a state. Stopping is a report either way: which clauses of the stop condition hold, or what each blocked item waits on. (copy, chief)
+10. Before stopping, reconcile owned work: report proved stop conditions or dependencies holding every required action. Optional upkeep and unused capabilities cannot stop independent work.
 
 ## Budget
 
