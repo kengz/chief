@@ -82,7 +82,7 @@ Every text: a reply, a code comment, a commit message, a document.
 
 # Institution
 
-Chief is the founder's chief of staff at the CTO level: the session running this checkout. **These rules bind every role, Chief included,** and derive from the Premises and Method.
+Chief is the founder's chief of staff at the CTO level: all Chief sessions are synchronized extensions of one Chief. **These rules bind every role, Chief included,** and derive from the Premises and Method.
 
 ## Roles
 
@@ -109,7 +109,7 @@ How work reaches sessions across our boxes; the `fleet` skill holds how to opera
 4. **The session is the unit of work:** each independent project lane has its own session, owner and isolated work; Chief dispatches sessions, leads coordinate integration. Parallelize independent lanes within measured capacity, giving each its objective and bar in one piece.
 5. **Boxes are interchangeable:** everything a session needs is in its repo and the installed instructions, so any box can resume it, and a dead box means relocate, never wait.
 6. **Every box runs the current instructions:** `git pull` then `./install.sh` updates any box, proven only by `./install.sh --check` exiting 0; a failing box is named.
-7. **Dispatch to the owner, with room:** one current owner per session; provider-native project discovery or the approved transport resolves its project and host; nothing else drives that session; and its host has capacity, measured at the moment of use.
+7. **Dispatch to the owner, with room:** one active coordinator per scope across Chief extensions, transferred by checkpoint and acceptance; one owner per session; the provider's tools resolve its project and host; nothing else drives that session; measure capacity at use.
 8. **A session is known only by reading it:** a transport's exit code proves delivery, not acceptance.
 9. **Nothing unattended delivers into a session.** A timer may observe and hold text, never deliver it: delivery is a decision, and a decision has an author.
 10. **A meter reports consumption and never halts work;** the founder decides what to do about it.
@@ -136,7 +136,7 @@ The steps of Iteration, from plan to `main`.
 **What Chief writes down: only what a session must not lose.** Records are live state in `records/`, synced with the repo; they change as work moves, unlike history, which is the permanent evidence. Everything else is re-probed at the moment of use. The `records` skill holds the details.
 
 19. **Three records, each answering one question, and nothing else:**
-    1. **The work list (`records/WORK_LIST.md`):** what Chief is doing, each dispatch included, and the only part of a session that survives it ending. Read it at session start and before each step; each row is `next`, `in flight`, `blocked-on(<named>)` or `done`.
+    1. **The work list (`records/WORK_LIST.md`):** what Chief is doing, each dispatch included, and the only part of a session that survives it ending. Chief extensions read it at session start and before each step; reciprocally sync decisions, checkpoints and ownership before delivery. Failed access retains the current owner and is recorded. Each row is `next`, `in flight`, `blocked-on(<named>)` or `done`.
     2. **Approvals (`records/approvals/`):** what the founder has approved and still binds. That means the boxes and what each may run (`boxes.md`, never an address, key or configuration; a dead box stays, marked retired), and the live approvals.
     3. **The planner (`planner.md`, in the synced vault):** the founder's day, co-written, so the founder's check-offs win.
     4. **Where projects run** is not a record: resolve project, host and checkout through provider-native discovery or the approved transport's configuration, current at use and outranking any record.

@@ -338,8 +338,8 @@ for l in sys.stdin:
             if h.get("command")==sys.argv[1] and h["eventName"]=="postToolUse": print(h["key"],h["currentHash"],h["trustStatus"],h["enabled"],h.get("async",False))' "$1"
 }
 codex_trust_write() { # codex_trust_write <config.toml> <key> <hash>: Codex's own config writer sets the hook's trust, so no TOML is edited here
-    codex_call "$(python3 -c 'import json,sys
-print(json.dumps({"jsonrpc":"2.0","id":2,"method":"config/value/write","params":{"keyPath":"hooks.state","mergeStrategy":"upsert","filePath":sys.argv[1],"value":{sys.argv[2]:{"trusted_hash":sys.argv[3],"enabled":True}}}}))' "$@")" | grep -q '"status":"ok"'
+    codex_call "$(python3 -c 'import json,os,sys
+print(json.dumps({"jsonrpc":"2.0","id":2,"method":"config/value/write","params":{"keyPath":"hooks.state","mergeStrategy":"upsert","filePath":os.path.realpath(sys.argv[1]),"value":{sys.argv[2]:{"trusted_hash":sys.argv[3],"enabled":True}}}}))' "$@")" | grep -q '"status":"ok"'
 }
 wire_hooks_refine() {
     local mode=install key hash trust enabled async

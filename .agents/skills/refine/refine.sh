@@ -82,6 +82,11 @@ cmds=[x["command"] for g in json.load(open(sys.argv[1]))["hooks"]["PostToolUse"]
 assert cmds==[sys.argv[2]]' "$j" "$cmd" 2>/dev/null || echo old-posttool-entry-alone-healed-to-one-refine-entry
             seed 30; ( ulimit -f 2; hook_entry "$j" "bash /r/refine/refine.sh" install ) 2>/dev/null; cmp -s "$j" "$j.0" || echo failed-write-leaves-original
             printf 'original' > "$j"; put "$j" sh -c 'echo half; exit 1' 2>/dev/null; [ "$(cat "$j")" = original ] && [ ! -e "$j.tmp.$$" ] || echo failed-producer-leaves-original
+            [ -L "$d/alias" ] || ln -s "$d/h" "$d/alias"
+            ( codex_call() { printf '%s' "$1" > "$d/request.json"; printf '{"status":"ok"}'; }
+              codex_trust_write "$d/alias/config.toml" "$k" new >/dev/null )
+            python3 -c 'import json,os,sys
+assert json.load(open(sys.argv[1]))["params"]["filePath"]==os.path.realpath(sys.argv[2])' "$d/request.json" "$d/alias/config.toml" 2>/dev/null || echo canonical-config-path
             command -v codex >/dev/null || return 0
             # basic and literal multiline strings hold lines that look like the keys being written; they must come through untouched
             cat > "$c" <<TOML
@@ -96,10 +101,13 @@ enabled = false
 enabled = false
 TOML
             cp "$c" "$c.0"; codex_trust_write "$c" "$k" new >/dev/null 2>&1
-            python3 -c 'import sys,tomllib
-b=tomllib.load(open(sys.argv[1]+".0","rb")); a=tomllib.load(open(sys.argv[1],"rb")); k=sys.argv[2]
-assert a["hooks"]["state"][k]=={"trusted_hash":"new","enabled":True}; a.pop("hooks"); b.pop("hooks")
-assert a==b' "$c" "$k" 2>/dev/null || echo config-write-changes-only-the-trust-table
+            python3 -c 'import re,sys
+b=open(sys.argv[1]+".0").read(); a=open(sys.argv[1]).read(); k=sys.argv[2]
+# The known fixture needs no optional TOML parser: preserve both literal strings and verify the written table.
+assert a.split("\n[hooks.state",1)[0].rstrip()==b.split("\n[hooks.state",1)[0].rstrip()
+m=re.search(r"^\[hooks\.state\.\""+re.escape(k)+r"\"\].*\n",a,re.M); assert m
+table=a[m.end():].split("\n[",1)[0]
+assert re.search(r"^enabled = true$",table,re.M) and re.search(r"^trusted_hash = \"new\"$",table,re.M)' "$c" "$k" 2>/dev/null || echo config-write-changes-only-the-trust-table
         }
         local fns; fns=$({ sed -n '/^put()/p' "$inst"; sed -n '/^HOOK_MATCHER=/,/^wire_hooks_refine()/p' "$inst" | sed '$d'; })
         for arm in $(inst_arms "$fns"); do echo "FAIL control: $arm"; bad=1; done
@@ -109,6 +117,7 @@ assert a==b' "$c" "$k" 2>/dev/null || echo config-write-changes-only-the-trust-t
             case "$got" in *"$want"*) echo "SELFTEST PASS: neutering the installer makes '$want' fail" ;; *) echo "FAIL: neutering the installer left '$want' passing"; bad=1 ;; esac
         done <<'NEUTER'
 "keyPath":"hooks.state"~"keyPath":"hooks.state.x"~config-write-changes-only-the-trust-table
+os.path.realpath(sys.argv\[1\])~sys.argv[1]~canonical-config-path
 ; h\["timeout"\]=30~~zero-timeout-repaired
  and h.get("timeout")==30~~zero-timeout-refused
  and g.get("matcher")==matcher~~wrong-matcher-refused
