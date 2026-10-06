@@ -106,7 +106,7 @@ A role may be held by a person or an agent.
 
 How work reaches sessions across our boxes; the `fleet` skill holds how to operate them.
 
-4. **The session is the unit of work:** one project per session, a colleague given its objective and bar in one piece, not a worker gated step by step.
+4. **The session is the unit of work:** each independent project lane has its own session, owner and isolated work; Chief dispatches sessions, leads coordinate integration. Parallelize independent lanes within measured capacity, giving each its objective and bar in one piece.
 5. **Boxes are interchangeable:** everything a session needs is in its repo and the installed instructions, so any box can resume it, and a dead box means relocate, never wait.
 6. **Every box runs the current instructions:** `git pull` then `./install.sh` updates any box, proven only by `./install.sh --check` exiting 0; a failing box is named.
 7. **Dispatch to the owner, with room:** one current owner per session; provider-native project discovery or the approved transport resolves its project and host; nothing else drives that session; and its host has capacity, measured at the moment of use.

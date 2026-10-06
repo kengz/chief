@@ -2,7 +2,7 @@
 fa917847d3112c329cd8eed87d9a9d1942917bada5c4f9576d44d4ad34a049f5  .agents/agents/engineer.md
 2fef5c204889de2dee903adcd8d93ade821b125080c5496fde21166dcf0ef22a  .agents/agents/planner-runner.md
 847c846d7c890d4c66305af395355b33fd858b63a6206553c8773c7ee54d5cda  .agents/agents/verifier.md
-97ee379758eb31b9e12df63e94a5047f7771fbea91da574fe54cdc5eba8f40e8  .agents/skills/fleet/SKILL.md
+4c02d53fe25063c9b4a962e5ef619decaa91249a1ec76125e47f04e3aaeb48bb  .agents/skills/fleet/SKILL.md
 654d3c9fe715724d790ad7d82b7710e44c49f26c83314ce5d8e2fd80096899a4  .agents/skills/lead-role/deck-kit/deck.css
 4b5f8c28703833f8116302f41916393dec9036d0562ef125b622c74f1734687c  .agents/skills/lead-role/deck-kit/DESIGN_SYSTEM.md
 dd79f8c71fc701f8c1c0e8e2f3169478df58c9e6bd4daa95c2359b1cedc68497  .agents/skills/lead-role/deck-kit/render_deck.py
