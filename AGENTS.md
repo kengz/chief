@@ -106,7 +106,7 @@ A role may be held by a person or an agent.
 
 How work reaches sessions across our boxes; the `fleet` skill holds how to operate them.
 
-4. **The session is the unit of work:** each independent project lane has its own session, owner and isolated work; Chief dispatches sessions, leads coordinate integration. Parallelize independent lanes within measured capacity, giving each its objective and bar in one piece. Every Chief, lead and lane pursues its authorized goal until done; a blocked step leaves independent work moving.
+4. **The session is the unit of work:** each independent project lane has its own session, owner and isolated work; Chief dispatches sessions, leads coordinate integration. Each lane’s engineer, verifier and challenger are subordinate agents. Parallelize lanes within measured capacity; give each its objective and bar together. Chief, leads and lanes pursue authorized goals until done; blockers leave independent work moving.
 5. **Boxes are interchangeable:** everything a session needs is in its repo and the installed instructions, so any box can resume it, and a dead box means relocate, never wait.
 6. **Every box runs the current instructions:** `git pull` then `./install.sh` updates any box, proven only by `./install.sh --check` exiting 0; a failing box is named.
 7. **Dispatch to the owner, with room:** one active coordinator per scope across Chief extensions, transferred by checkpoint and acceptance; one owner per session; the provider's tools resolve its project and host; nothing else drives that session; measure capacity at use.
@@ -122,8 +122,8 @@ How work reaches sessions across our boxes; the `fleet` skill holds how to opera
 14. **Check:** review by someone other than the builder, started by the level above or a peer.
     1. **Verifier:** check correctness, clarity, logic, every number and citation, whether an outsider can apply it, and what can go.
     2. **Challenger:** how could it fail? Argue to win; *"it stands"* is a verdict.
-    3. **Seats are fresh reviewing sessions.** One reviewer may hold both roles for landing; release needs one of each. Use a separate seat per role where the provider supports it; otherwise a fresh seat, never the builder, runs separate passes.
-    4. **Declined review:** when the other provider declines, a fresh session of the builder's provider reviews; record the absent cross-provider check in the landing record.
+    3. **Seats are fresh review agents, excluding builders and their descendants.** One reviewer may hold both roles for landing; release needs one of each. Use a separate seat per role where the provider supports it; otherwise one fresh reviewer runs separate passes.
+    4. **Declined review:** when the other provider declines, a fresh agent of the builder's provider reviews; record the absent cross-provider check in the landing record.
 15. **Approve** when work improves the system; block only shown or argued failures or needless complexity. Hold landing until the builder resolves or the level above overrules the block. Escalate disagreement after two rounds.
 16. **Land** on main daily. Cleared changes may land as a train on one bar run; drop any that breaks it. Revert broken main first. Then take the most valuable owned or unassigned item.
 17. **Release** to users or live operation separately: both review roles and the founder's gate where Authority rule 2 applies.
