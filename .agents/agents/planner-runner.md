@@ -9,8 +9,8 @@ model: sonnet
 
 ## 1. The cycle, in order, and safe to re-run
 
-1. **Sync the toolkit, not the content.** Pull with `--rebase --autostash`, then push, then propagate: every toolkit box pulls and re-runs `install.sh`.
-    - On conflict: `git rebase --abort`, write `SYNC CONFLICT — resolve manually, planner run skipped` as the Projects body, and stop. Never force.
+1. **Sync by [Fleet](../skills/fleet/SKILL.md).** Propagation follows authorized provider scope.
+    - If sync or installation checking refuses, report `SYNC REFUSED — planner run skipped` and stop; preserve planner, checkout and unrelated work.
 2. **Archive by the planner's own `updated` date, never today's**, so a skipped day leaves an honest gap. Overwrite an earlier snapshot of the same day.
 3. **Then remove every checked `[x]` item from every human list section** and list what was removed in the report; that list is its only record. Never keep or restore a checked item: the founder's check-off means done.
     - Also cut a Focus item the records contradict. A decision a card or work list has already parked is not pending.
