@@ -1,6 +1,6 @@
 # Chief
 
-A setup that turns [Claude Code](https://claude.com/claude-code) into your chief of staff.
+A setup for a chief of staff running in [Claude Code](https://claude.com/claude-code) or the Codex application, using native tools for its own provider.
 
 You are the founder. Chief is a long-running session that holds the purpose of each project, dispatches the work to project sessions, reviews what comes back, and keeps the few records a session must not lose.
 
@@ -14,7 +14,7 @@ You are the founder. Chief is a long-running session that holds the purpose of e
     5. Codification: how the rules, skills and history are kept.
 2. **`CLAUDE.md`:** exactly `@AGENTS.md`, so Claude Code and any other agent read the same file.
 3. **Skills** in `.agents/skills/`, which Claude mirrors:
-    1. `fleet`: driving persistent sessions across boxes.
+    1. `fleet`: native Codex project dispatch, CLI/server setup and measured admission, with retained adapter transport.
     2. `records`: the records and the daily planner run.
     3. `lead-role`: what a project's lead session owns, plus a deck kit for progress decks.
     4. `refine`: measuring the work and improving the rules from evidence; its `refine.sh` is the quiet hook that, after work lands (a commit, push or merge), asks a session to refine it; `eval.sh` tests by hand that the model then acts only when needed.
@@ -37,7 +37,7 @@ You need `git`, `rsync`, `find`, `cmp`, `sha256sum` (or `shasum`) and `bash`.
     5. checks each instruction file against its word ceiling in `.agents/rule-budget`;
     6. wires the refine hook (a quiet PostToolUse hook after a commit, push or merge) in Claude and Codex.
 3. Prove it with `./install.sh --check`. It changes nothing and exits 0 only when everything matches, including that no name in `.agents/retired-names` is still in use.
-4. Open Claude Code in this folder. The session is Chief.
+4. Open this folder in Claude Code or the Codex application. The session is Chief. Discover the native project and thread tools available on your installation before dispatching.
 
 An existing `~/.claude/CLAUDE.md` that you wrote by hand is left alone; the installer only replaces files it generated.
 
@@ -54,11 +54,18 @@ An existing `~/.claude/CLAUDE.md` that you wrote by hand is left alone; the inst
 
 1. Edit `AGENTS.md` to fit how you work. The installer blocks growth past the word ceilings, and the push guard requires a `FOUNDER-RATIFIED:` line in any commit that changes it.
 2. After editing any skill or agent, run `./install.sh --write-manifest`, commit, then `./install.sh`.
-3. The `fleet` skill assumes a tool that starts and drives persistent sessions on your boxes (`map`, `goal`, `send`, `read`, `up`, `restart`). Use your own and rename the verbs.
+3. Read the `fleet` skill before dispatch. Native Codex tools discover projects, create sessions and read acceptance; approved SSH is infrastructure transport. Retained adapters have their own verbs and provider scope. Qualify approval policy, sandbox, runtime and measured capacity separately; this template installs no host resource limits or admission checker.
 4. For the daily planner run, copy `.agents/skills/records/intel-sources.example.md` to `.agents/local/intel-sources.md` (it is gitignored) and list your feeds. Add calendar or mail connectors to `planner-runner` if you want those sections.
 5. The "vault" is this checkout, synced across your boxes (git carries the toolkit; a sync service such as Obsidian can carry the notes). The planner run archives each day's notes under `archive/daily/`.
 6. `refine/measure.sh` finds this repo at `$HOME/projects/chief`; set `CHIEF_REPO` if you cloned it elsewhere.
-7. Keep notes, calendars and anything personal out of git. `.gitignore` allows only the toolkit; allow a push only to remotes you trust with `git config --add chief.allowedRemote <url>`.
+7. Keep personal notes and configuration out of public templates. `.gitignore` is a boundary, not proof that tracked files are public-safe; inspect the entire proposed publication, including record and planner templates.
+
+## Publishing templates and syncing private vaults
+
+1. This repository is a public template. A customized vault with personal records belongs in a private destination; never publish it merely because its toolkit is useful.
+2. The push guard remains opt-in for the exact remote URL and runs its other checks before the allowlist. It cannot determine whether content is safe to disclose. Only after explicit owner authorization and independent review of the exact public template candidate may the publisher run `git config --add chief.allowedRemote <approved-template-url>` and push that reviewed candidate through the unchanged guard.
+3. For a private vault, approve only its intended private destination. Never copy private records, fleet identities, addresses, credentials, configuration or incident evidence into a public adaptation. Refusal holds publication: report it and obtain a decision; do not disable hooks, change destination or retry through another route.
+4. The public adaptation documents measured admission and containment. It does not deploy limits, prove a particular host reliable, or promise automatic dispatch interception.
 
 ## Licence
 
