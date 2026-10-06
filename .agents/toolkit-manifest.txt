@@ -6,7 +6,7 @@ fa917847d3112c329cd8eed87d9a9d1942917bada5c4f9576d44d4ad34a049f5  .agents/agents
 654d3c9fe715724d790ad7d82b7710e44c49f26c83314ce5d8e2fd80096899a4  .agents/skills/lead-role/deck-kit/deck.css
 4b5f8c28703833f8116302f41916393dec9036d0562ef125b622c74f1734687c  .agents/skills/lead-role/deck-kit/DESIGN_SYSTEM.md
 dd79f8c71fc701f8c1c0e8e2f3169478df58c9e6bd4daa95c2359b1cedc68497  .agents/skills/lead-role/deck-kit/render_deck.py
-fbe41e7ddea19203cdc5eb332f704b22f67a4e42e14dd76df45f9e8d880c0967  .agents/skills/lead-role/SKILL.md
+835ebbd6f6a5317423d9340e5ffbd1fdb87b5aab65193d0a2493d91bf36a269c  .agents/skills/lead-role/SKILL.md
 1475fcabe3a5056576197e6ba653e4045b647539ebda4015a8e6201da137371e  .agents/skills/records/intel-sources.example.md
 61e5e2dba89cbc307e3fd9fa4be7d9b466df34ee6ce2994622c2ae847986876b  .agents/skills/records/SKILL.md
 7f8deb8ad89dc73fa969de9c3d9444a6df60cbe0e734214b8c1080880b701085  .agents/skills/refine/eval.sh
