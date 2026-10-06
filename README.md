@@ -36,7 +36,7 @@ You need `git`, `rsync`, `find`, `cmp`, `sha256sum` (or `shasum`) and `bash`.
     4. checks every file against `.agents/toolkit-manifest.txt`;
     5. checks each instruction file against its word ceiling in `.agents/rule-budget`;
     6. wires the refine hook (a quiet PostToolUse hook after a commit, push or merge) in Claude and Codex.
-3. Prove it with `./install.sh --check`. It changes nothing and exits 0 only when everything matches, including that no name in `.agents/retired-names` is still in use.
+3. Qualify it with `./install.sh --check` in the actual login environment: require exit 0 with no `NOTE` or `NOT CHECKED`, including the retired-name and hook-trust checks. An exit code alone can leave Codex hook trust unverified; resolve that missing check before qualification.
 4. Open this folder in Claude Code or the Codex application. The session is Chief. Discover the native project and thread tools available on your installation before dispatching.
 
 An existing `~/.claude/CLAUDE.md` that you wrote by hand is left alone; the installer only replaces files it generated.
