@@ -11,5 +11,5 @@ dd567c4583d5eed77b2273baa01922c95e8f562b23f23a5a8711cde3797a1d4d  .agents/skills
 61e5e2dba89cbc307e3fd9fa4be7d9b466df34ee6ce2994622c2ae847986876b  .agents/skills/records/SKILL.md
 7f8deb8ad89dc73fa969de9c3d9444a6df60cbe0e734214b8c1080880b701085  .agents/skills/refine/eval.sh
 18db224e6d3a9f3d3f237881db677166ce0670ed3c46c750e76dd39ddcec7177  .agents/skills/refine/measure.sh
-47b49aa3db96d761efa2ace0f84b347a809e2845fa7912e7d4ae4995310a3ab4  .agents/skills/refine/refine.sh
+c092b1d8dcbdffd4455aabb3a9f539e9392607ee96496a6d204cd120e0f8b245  .agents/skills/refine/refine.sh
 74a1ac036420a0021e0a0fa0c2595ad13a8c36c35ea929eba9356a48d81337d7  .agents/skills/refine/SKILL.md

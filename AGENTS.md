@@ -116,33 +116,31 @@ How work reaches sessions across our boxes; the `fleet` skill holds how to opera
 
 ## Delivery
 
-The steps of Iteration, from plan to `main`.
-
-11. **Plan** with the Algorithm, using the cheapest capable model or person. Raise another owner's requirement with them; never drop it.
-12. **Bar first:** what done means, checks shown to fail on broken work and run once where the work will run, and a cap. A step lands within a day and a reviewer follows it in one sitting; hold at most two open per owner.
-13. **Build:** one command runs the bar on every push and gates landing. Push every working commit, so the work is portable; unfinished work lands switched off.
-14. **Check:** someone other than the builder reviews it, started by the level above or a peer.
-    1. **Verifier:** is it right and clear? The logic, every number and citation, whether an outsider could apply it, and what can go.
+11. **Plan** with the Algorithm and the cheapest capable model or person. Raise another owner's requirement with them; never drop it.
+12. **Bar first:** define done, a cap, and checks shown to fail on broken work, run once where work will run. Each step lands within a day and a reviewer follows it in one sitting; at most two open per owner.
+13. **Build:** one command runs the bar on every push and gates landing. Push every working commit for portability; land unfinished work switched off.
+14. **Check:** review by someone other than the builder, started by the level above or a peer.
+    1. **Verifier:** check correctness, clarity, logic, every number and citation, whether an outsider can apply it, and what can go.
     2. **Challenger:** how could it fail? Argue to win; *"it stands"* is a verdict.
-    3. **Seats**, meaning fresh reviewing sessions: one reviewer may hold both roles to land, and a release gets one of each. Each role is its own seat where the provider supports it; otherwise one fresh seat, never the builder, runs them as separate passes.
-    4. **A declined review:** when the other provider declines, a fresh session of the builder's provider reviews instead, and the landing record states that the cross-provider check was not had.
-15. **Approve** when it improves the system; block only on a shown or argued failure, or needless complexity. A block holds the landing until the builder resolves it or the level above overrules it; a disagreement after two rounds goes up a level.
-16. **Land** on main daily. Several cleared changes may land together as a train, on one bar run, dropping any that breaks it. If main breaks, revert first. Then take the most valuable item you own or that is unassigned.
-17. **Release** to users or live operation is its own step: both review roles, and the founder's gate where Authority rule 2 applies.
-18. **Learn** at every landing and on a clock: measure, and name each fix's anomaly. A missed defect stops the line until its revert and catching check land; find the cause, not a culprit. A repeat starts Refinement.
+    3. **Seats are fresh reviewing sessions.** One reviewer may hold both roles for landing; release needs one of each. Use a separate seat per role where the provider supports it; otherwise a fresh seat, never the builder, runs separate passes.
+    4. **Declined review:** when the other provider declines, a fresh session of the builder's provider reviews; record the absent cross-provider check in the landing record.
+15. **Approve** when work improves the system; block only shown or argued failures or needless complexity. Hold landing until the builder resolves or the level above overrules the block. Escalate disagreement after two rounds.
+16. **Land** on main daily. Cleared changes may land as a train on one bar run; drop any that breaks it. Revert broken main first. Then take the most valuable owned or unassigned item.
+17. **Release** to users or live operation separately: both review roles and the founder's gate where Authority rule 2 applies.
+18. **Learn** at every landing and on a clock: measure and name each fix's anomaly. A missed defect stops the line until its revert and catching check land; find the cause, not a culprit. Repeats start Refinement.
 
 ## Records
 
-**What Chief writes down: only what a session must not lose.** Records are live state in `records/`, synced with the repo; they change as work moves, unlike history, which is the permanent evidence. Everything else is re-probed at the moment of use. The `records` skill holds the details.
+Records keep only what sessions must retain: live state in `records/`, synced with the repo and changing with work. History holds permanent evidence; re-probe everything else at use. The `records` skill holds the procedure.
 
-19. **Three records, each answering one question, and nothing else:**
-    1. **The work list (`records/WORK_LIST.md`):** what Chief is doing, each dispatch included, and the only part of a session that survives it ending. Chief extensions read it at session start and before each step; reciprocally sync decisions, checkpoints and ownership before delivery. Failed access retains the current owner and is recorded. Each row is `next`, `in flight`, `blocked-on(<named>)` or `done`.
-    2. **Approvals (`records/approvals/`):** what the founder has approved and still binds. That means the boxes and what each may run (`boxes.md`, never an address, key or configuration; a dead box stays, marked retired), and the live approvals.
-    3. **The planner (`planner.md`, in the synced vault):** the founder's day, co-written, so the founder's check-offs win.
-    4. **Where projects run** is not a record: resolve project, host and checkout through provider-native discovery or the approved transport's configuration, current at use and outranking any record.
-20. **Written when work starts, never when it returns,** so work that never returns still leaves its row.
-21. **Re-derived, never appended:** settled rows leave, because history holds them.
-22. **A new record needs a reader, a pruner and a ceiling;** missing any, it is not created.
+19. **Only three records, one question each and nothing else:**
+    1. **Work list (`records/WORK_LIST.md`):** what Chief does, every dispatch included; the only session state retained at its end. Chief extensions read it at session start and before each step; reciprocally sync decisions, checkpoints and ownership before delivery. Record failed access and retain the current owner. Rows: `next`, `in flight`, `blocked-on(<named>)` or `done`.
+    2. **Approvals (`records/approvals/`):** binding founder approvals: boxes and what each may run (`boxes.md`; no addresses, keys or configuration; retain dead boxes marked retired), and live approvals.
+    3. **Planner (`planner.md`, in the synced vault):** the founder's co-written day; the founder's check-offs win.
+    4. **Project location is not a record:** resolve project, host and checkout through current provider-native discovery or approved transport configuration; these outrank records.
+20. **Write at work start, never on return:** even work that never returns leaves its row.
+21. **Re-derive, never append:** remove settled rows; history retains them.
+22. **New records need a reader, pruner and ceiling;** create none missing any.
 
 ---
 

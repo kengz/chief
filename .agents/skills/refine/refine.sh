@@ -1,16 +1,17 @@
 #!/usr/bin/env bash
-# PostToolUse hook for Claude and Codex: Method section 4 says when to refine. After work lands, a shell command
-# containing git commit, push or merge, it adds
-# one sentence of context for the model. It never blocks, shows the user nothing, keeps no
+# PostToolUse hook for Claude and Codex: a landing command adds context for the model to verify and refine
+# the work (Method section 4). The hook supplies a reminder, not reasoning. It never blocks, shows the user nothing, keeps no
 # state, and reads no Git, files or network. Any error of its own allows silently.
 # refine.sh --selftest   runs seeded controls, each shown failing against a neutered copy.
 decide() {
     python3 -c 'import json,re,sys
 d=json.load(sys.stdin); name=d.get("tool_name") or ""; cmd=str((d.get("tool_input") or {}).get("command") or "")
-# Never git merge-base, merge-tree or a dry run.
-SH=re.compile(r"git\s+(commit|push|merge)(?![-\w])(?![^;&|\n]*--dry-run)")  # arm:shell
-if not (name=="Bash" and SH.search(cmd)): sys.exit(0)  # arm:gate
-print(json.dumps({"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"Work landed: if it left a shortfall, including what restates it, refine it by Method \u00a74, taking each step it needs (the refine skill lists all six and when each runs); report only what you changed, under a final heading **Refinement**; if nothing needed it, say nothing."}}))  # arm:emit
+# Git directory/config options precede the verb; quoted option values may contain spaces.
+Q=chr(39); VALUE=r"(?:\"[^\"\n]*\"|"+Q+r"[^"+Q+r"\n]*"+Q+r"|[^\s;&|\n]+)"
+SH=re.compile(r"(?<![\w-])git\s+(?:(?:-C|-c)\s+"+VALUE+r"\s+)*(commit|push|merge)(?![-\w])(?![^;&|\n]*--dry-run)")  # arm:shell
+response=d.get("tool_response"); failed=isinstance(response,dict) and (response.get("interrupted") or response.get("exit_code",0)!=0)  # arm:response
+if not (name=="Bash" and SH.search(cmd)) or failed: sys.exit(0)  # arm:gate
+print(json.dumps({"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"A landing command ran; verify its result. Before calling work done, introspect and unify by Method \u00a74 and the refine procedure: fix shortfalls, add a catching check where needed, and merge or cut duplication. Report only actual changes under **Refinement**; if none were needed, say nothing."}}))  # arm:emit
 '
 }
 
@@ -21,23 +22,27 @@ selftest() {
     run() { printf '%s' "$1" | bash "$S" 2>"$d/err"; }
     cl() { printf '{"session_id":"s","cwd":"/x","prompt_id":"p","permission_mode":"default","hook_event_name":"PostToolUse","tool_name":"%s","tool_input":%s,"tool_response":{"stdout":"","stderr":"","interrupted":false}}' "$1" "$2"; }
     cx() { printf '{"session_id":"s","turn_id":"t","cwd":"/x","hook_event_name":"PostToolUse","model":"m","permission_mode":"default","tool_name":"%s","tool_input":%s,"tool_response":"ok","tool_use_id":"u","transcript_path":null}' "$1" "$2"; }
+    command_json() { python3 -c 'import json,sys; print(json.dumps({"command":sys.argv[1]}))' "$1"; }
     arms() {
         S=$1
         for p in cl cx; do
-            for c in "git commit -m x" "git add -A && git push origin main" "git merge x"; do
-                [ -n "$(run "$($p Bash "{\"command\":\"$c\"}")")" ] || echo "fires-$p-$c"
+            for c in "git commit -m x" "git add -A && git push origin main" "git merge x" "git -C /tmp/project commit -m x" "git -c user.name=x push origin main" "git -C \"/tmp/project space\" -c 'user.name=A B' merge topic"; do
+                [ -n "$(run "$($p Bash "$(command_json "$c")")")" ] || echo "fires-$p-$c"
             done
-            for c in "cat README.md" "git status" "git log -3" "git rebase main" "fleet-tool send box hi" "fleet-tool goal box x" "git merge-base a b" "git merge-tree a b" "git commit --dry-run"; do [ -z "$(run "$($p Bash "{\"command\":\"$c\"}")")" ] || echo "silent-$p-$c"; done
+            for c in "cat README.md" "git status" "git log -3" "git rebase main" "fleet-tool send box hi" "fleet-tool goal box x" "git merge-base a b" "git merge-tree a b" "git commit --dry-run" "git -C /tmp/project push --dry-run" "git -c user.name=x merge-base a b" "legit commit x"; do [ -z "$(run "$($p Bash "$(command_json "$c")")")" ] || echo "silent-$p-$c"; done
             [ -z "$(run "$($p Read '{"file_path":"/a"}')")" ] || echo "silent-$p-read"
             [ -z "$(run "$($p Edit '{"file_path":"/a"}')")" ] || echo "silent-$p-edit"
         done
         [ -z "$(run "$(cl SendMessage '{"to":"a","command":"git commit"}')")" ] || echo silent-cl-send
         [ -z "$(run "$(cx send_message '{"target":"/root","command":"git commit"}')")" ] || echo silent-cx-send
+        [ -z "$(run '{"tool_name":"Bash","tool_input":{"command":"git commit -m x"},"tool_response":{"exit_code":1}}')" ] || echo silent-failed
+        [ -z "$(run '{"tool_name":"Bash","tool_input":{"command":"git commit -m x"},"tool_response":{"interrupted":true}}')" ] || echo silent-interrupted
         printf 'garbage' | bash "$S" >"$d/out" 2>"$d/err"; r=$?
         { [ "$r" = 0 ] && [ ! -s "$d/out" ]; } || echo fails-open
         run "$(cl Bash '{"command":"git commit -m x"}')" | python3 -c 'import json,sys
 d=json.load(sys.stdin); h=d["hookSpecificOutput"]
-assert h["hookEventName"]=="PostToolUse" and "**Refinement**" in h["additionalContext"]      # Claude and Codex: context for the model
+assert h["hookEventName"]=="PostToolUse" and "**Refinement**" in h["additionalContext"]
+assert "verify its result" in h["additionalContext"] and "introspect and unify" in h["additionalContext"] and "actual changes" in h["additionalContext"] and "Work landed" not in h["additionalContext"]      # Claude and Codex: context for the model
 assert "decision" not in d and set(d)<={"continue","hookSpecificOutput","systemMessage","suppressOutput"} and set(h)<={"hookEventName","additionalContext"}   # never blocks, nothing for the user' 2>/dev/null || echo output-parses
     }
     for arm in $(arms "$0"); do echo "FAIL control: $arm"; bad=1; done
@@ -48,9 +53,11 @@ assert "decision" not in d and set(d)<={"continue","hookSpecificOutput","systemM
         got=$(arms "$d/neutered.sh")
         case "$got" in *"$want"*) echo "SELFTEST PASS: neutering '$tag' makes '$want' fail" ;; *) echo "FAIL: neutering '$tag' left '$want' passing (got: ${got:-none})"; bad=1 ;; esac
     done <<'NEUTER'
+shell~SH=re.compile("git\\s+(commit|push|merge)(?![-\\w])(?![^;&|\\n]*--dry-run)")~fires-cl-git -C /tmp/project commit -m x
 shell~SH=re.compile("^$")~fires-cl-git commit -m x
 shell~SH=re.compile(".")~silent-cl-cat README.md
 shell~SH=re.compile("git")~silent-cl-git status
+response~response=None; failed=False~silent-failed
 gate~if not SH.search(cmd): sys.exit(0)~silent-cl-send
 emit~print(json.dumps({"decision":"block","reason":"x"}))~output-parses
 open~    decide || exit 1~fails-open
