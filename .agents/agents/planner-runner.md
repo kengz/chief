@@ -14,7 +14,11 @@ model: sonnet
 2. **Archive by the planner's own `updated` date, never today's**, so a skipped day leaves an honest gap. Overwrite an earlier snapshot of the same day.
 3. **Then remove every checked `[x]` item from every human list section** and list what was removed in the report; that list is its only record. Never keep or restore a checked item: the founder's check-off means done.
     - Also cut a Focus item the records contradict. A decision a card or work list has already parked is not pending.
-4. **Run every `default: on` row of section 2, in table order,** writing that row's section body and nothing else. A section a row names but the planner lacks is created, and a row whose fetch fails writes its `gate` string, never a dead section.
+4. **Fetch independent `default: on` rows concurrently within one shared approved budget.**
+    1. Serialize dependencies, link deduplication and record or repository changes.
+    2. After archive/sweep, one writer updates only row section bodies in table order.
+    3. Create missing sections; failed fetches write the row's `gate`.
+
 5. **Stamp `updated` to now in UTC, refresh the date line, and write that timestamp to `records/planner-last-run`.** It is the `done` window's anchor; without it a skipped day widens the window and two runs in one day duplicate it.
 6. **Return the run's report in planner order:** Agenda, Inbox, Intel, Focus (one line of what the sweep cleared), Projects, `done`. Glance sections only, and no summary paragraph under the date.
     - The final message is exactly that and nothing else: the section names in that order, each with its one-line glance, every intel item with its permalink, and no extra heading, limits note or commentary (put a limit in the section it affects, such as `done`).

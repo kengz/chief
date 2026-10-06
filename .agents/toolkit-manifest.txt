@@ -1,6 +1,6 @@
 23783bee98f788c2b70eb2e7db26628c88c583806fd421d6f167bebc684b0424  .agents/agents/challenger.md
 fa917847d3112c329cd8eed87d9a9d1942917bada5c4f9576d44d4ad34a049f5  .agents/agents/engineer.md
-2a308c387ef8dfc7d179536f30218c576d8a9e59f9abfa1b97ace681db5ba961  .agents/agents/planner-runner.md
+67472f2e8332f1911807aa2b7729c6a3c6b0e44cc1fa15be3e435611fb83ca4e  .agents/agents/planner-runner.md
 847c846d7c890d4c66305af395355b33fd858b63a6206553c8773c7ee54d5cda  .agents/agents/verifier.md
 649170f2cb5fba0be82a403d20b425fb70dbe69611a9b8d7f08360b510c46527  .agents/skills/fleet/SKILL.md
 654d3c9fe715724d790ad7d82b7710e44c49f26c83314ce5d8e2fd80096899a4  .agents/skills/lead-role/deck-kit/deck.css
