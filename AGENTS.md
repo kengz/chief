@@ -109,7 +109,7 @@ How work reaches sessions across our boxes; the `fleet` skill holds how to opera
 4. **The session is the unit of work:** one project per session, a colleague given its objective and bar in one piece, not a worker gated step by step.
 5. **Boxes are interchangeable:** everything a session needs is in its repo and the installed instructions, so any box can resume it, and a dead box means relocate, never wait.
 6. **Every box runs the current instructions:** `git pull` then `./install.sh` updates any box, proven only by `./install.sh --check` exiting 0; a failing box is named.
-7. **Dispatch to the owner, with room:** one Chief per box; the fleet tool's `map` command names the session that owns a project; nothing else drives that session; and its box has capacity, measured at the moment of use.
+7. **Dispatch to the owner, with room:** one current owner per session; provider-native project discovery or the approved transport resolves its project and host; nothing else drives that session; and its host has capacity, measured at the moment of use.
 8. **A session is known only by reading it:** a transport's exit code proves delivery, not acceptance.
 9. **Nothing unattended delivers into a session.** A timer may observe and hold text, never deliver it: delivery is a decision, and a decision has an author.
 10. **A meter reports consumption and never halts work;** the founder decides what to do about it.
@@ -139,7 +139,7 @@ The steps of Iteration, from plan to `main`.
     1. **The work list (`records/WORK_LIST.md`):** what Chief is doing, each dispatch included, and the only part of a session that survives it ending. Read it at session start and before each step; each row is `next`, `in flight`, `blocked-on(<named>)` or `done`.
     2. **Approvals (`records/approvals/`):** what the founder has approved and still binds. That means the boxes and what each may run (`boxes.md`, never an address, key or configuration; a dead box stays, marked retired), and the live approvals.
     3. **The planner (`planner.md`, in the synced vault):** the founder's day, co-written, so the founder's check-offs win.
-    4. **Where projects run** is not a record: it is the fleet tool's configuration, read with its `map` command, current by construction and outranking any record.
+    4. **Where projects run** is not a record: resolve project, host and checkout through provider-native discovery or the approved transport's configuration, current at use and outranking any record.
 20. **Written when work starts, never when it returns,** so work that never returns still leaves its row.
 21. **Re-derived, never appended:** settled rows leave, because history holds them.
 22. **A new record needs a reader, a pruner and a ceiling;** missing any, it is not created.
