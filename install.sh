@@ -13,7 +13,7 @@
 # 4. ~/.claude/PRINCIPLES.md and the Codex global are generated from AGENTS.md.
 # 5. The push guard (.githooks) is wired by setting core.hooksPath.
 # 6. Each instruction file stays under its word ceiling in .agents/rule-budget.
-# 7. The refine hook (refine/refine.sh) is wired as a quiet PostToolUse hook in Claude and Codex.
+# Self-improvement is guidance; installation retires dead managed hooks without adding new ones.
 
 set -uo pipefail
 
@@ -285,79 +285,59 @@ wire_hooks() {
     fi
 }
 
-# THE REFINE HOOK (Method section 4, Refinement) is a PostToolUse hook in both providers, matched to the shell tool. Claude lists it in
-# settings.json; Codex lists it in hooks.json and runs only hooks it has trusted, by a hash only Codex computes, so the install
-# records the hash Codex reports in its config.toml. --check: present, synchronous, matched, timed, not disabled, trusted, and no
-# entry left under the hook's old name, under any event. Limit: project settings can still switch hooks off; --check certifies only what the install controls.
-CODEX_HOOKS="${CODEX_HOOKS:-$HOME/.codex/hooks.json}"
-HOOK_MATCHER="Bash"
-hook_entry() { # hook_entry <file> <command> <install|check>: a synchronous, matched PostToolUse hook runs the command, no entry under the hook's old name remains, hooks are not disabled; install makes it so
-    python3 - "$@" "$HOOK_MATCHER" <<'PY'
-import json,os,sys
-f,cmd,mode,matcher=sys.argv[1:5]
-try: d=json.load(open(f))
-except FileNotFoundError: d={}
-if d.get("disableAllHooks"): print("disableAllHooks is true in "+f); sys.exit(1)
-hk=d.setdefault("hooks",{}); ev=hk.setdefault("PostToolUse",[])
-runs=lambda h: h.get("command")==cmd
-isold=lambda h: "refine-instructions/introspect.sh" in str(h.get("command"))  # the hook's old name and place, under any event; retired-ok
-leftover=any(isold(h) for v in hk.values() if isinstance(v,list) for g in v for h in g.get("hooks",[]))
-mine=[(g,h) for g in ev for h in g.get("hooks",[]) if runs(h)]
-if mode=="install":
-    for k in list(hk):
-        if not isinstance(hk[k],list): continue
-        keep=[g for g in hk[k] if not (g.get("hooks") and all(isold(h) for h in g["hooks"]))]   # groups holding only old entries go
-        for g in keep:
-            if isinstance(g.get("hooks"),list): g["hooks"]=[h for h in g["hooks"] if not isold(h)]
-        if not keep and hk[k] and k!="PostToolUse": del hk[k]
-        else: hk[k][:]=keep   # in place: ev is this very list
-    for g,h in mine: h.pop("async",None); h["timeout"]=30; g["matcher"]=matcher
-    if not mine: ev.append({"matcher":matcher,"hooks":[{"type":"command","command":cmd,"timeout":30}]})
-    t=f+".tmp"
+# Remove dead command hooks pointing into our managed skill directories; preserve unrelated hooks.
+# No new hook or provider trust setting is installed.
+prune_dead_hooks() {
+    python3 - "$DEST/settings.json" "${CODEX_HOOKS:-$HOME/.codex/hooks.json}" "$DEST/skills" "$CODEX_SKILLS" "${1-}" "$ROOT" <<'PYHOOK'
+import json,os,shlex,stat,subprocess,sys,tempfile
+files,roots,mode,repo=sys.argv[1:3],sys.argv[3:5],sys.argv[5],sys.argv[6]
+# Git proves which paths this toolkit owned; shared skill roots alone prove nothing.
+history=set(subprocess.check_output(['git','-C',repo,'log','--format=','--name-only','--','.agents/skills','.claude/skills'],text=True).splitlines())
+current=set(subprocess.check_output(['git','-C',repo,'ls-files','--','.agents/skills','.claude/skills'],text=True).splitlines())
+retired=history-current
+for file in files:
+    file=os.path.realpath(file)
     try:
-        with open(t,"w") as o: json.dump(d,o,indent=2); o.flush(); os.fsync(o.fileno())
-        os.replace(t,f); sys.exit(0)
-    except OSError as e:
-        try: os.remove(t)
-        except OSError: pass
-        sys.exit("could not write %s (%s); the original is untouched"%(f,e))
-sys.exit(0 if not leftover and any(h.get("type")=="command" and not h.get("async") and h.get("timeout")==30 and g.get("matcher")==matcher for g,h in mine) else 1)
-PY
-}
-codex_call() { # codex_call <request json>: Codex's own reply to one app-server request
-    { printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"clientInfo":{"name":"install","version":"1"}}}' \
-        '{"jsonrpc":"2.0","method":"initialized"}' "$1"; sleep 2; } \
-    | CODEX_HOME="$(dirname "$CODEX_HOOKS")" codex app-server --listen stdio:// 2>/dev/null | grep '"id":2'
-}
-codex_hook_trust() { # prints "key hash trustStatus enabled async" of our PostToolUse hook as Codex itself reports it
-    codex_call "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"hooks/list\",\"params\":{\"cwds\":[\"$ROOT\"]}}" \
-    | python3 -c 'import json,sys
-for l in sys.stdin:
-    for e in (json.loads(l).get("result") or {}).get("data") or []:
-        for h in e["hooks"]:
-            if h.get("command")==sys.argv[1] and h["eventName"]=="postToolUse": print(h["key"],h["currentHash"],h["trustStatus"],h["enabled"],h.get("async",False))' "$1"
-}
-codex_trust_write() { # codex_trust_write <config.toml> <key> <hash>: Codex's own config writer sets the hook's trust, so no TOML is edited here
-    codex_call "$(python3 -c 'import json,os,sys
-print(json.dumps({"jsonrpc":"2.0","id":2,"method":"config/value/write","params":{"keyPath":"hooks.state","mergeStrategy":"upsert","filePath":os.path.realpath(sys.argv[1]),"value":{sys.argv[2]:{"trusted_hash":sys.argv[3],"enabled":True}}}}))' "$@")" | grep -q '"status":"ok"'
-}
-wire_hooks_refine() {
-    local mode=install key hash trust enabled async
-    [ "${1-}" = "--check" ] && mode=check
-    local claude_cmd="bash \"$DEST/skills/refine/refine.sh\"" codex_cmd="bash \"$CODEX_SKILLS/refine/refine.sh\""
-    [ "$mode" = install ] && { mkdir -p "$DEST" "$(dirname "$CODEX_HOOKS")" || return 1; }
-    hook_entry "$DEST/settings.json" "$claude_cmd" "$mode" && hook_entry "$CODEX_HOOKS" "$codex_cmd" "$mode" \
-        || { echo "REFINE HOOK OFF: $DEST/settings.json or $CODEX_HOOKS lacks a synchronous, matched PostToolUse hook running refine.sh, still has one under its old name, or has hooks disabled — install to wire it"; return 1; }
-    if command -v codex >/dev/null; then
-        read -r key hash trust enabled async <<< "$(codex_hook_trust "$codex_cmd")"
-        if [ "$mode" = install ] && { [ "$trust" != trusted ] || [ "$enabled" != True ]; } && [ -n "$key" ]; then
-            codex_trust_write "$(dirname "$CODEX_HOOKS")/config.toml" "$key" "$hash" || return 1
-            read -r key hash trust enabled async <<< "$(codex_hook_trust "$codex_cmd")"   # believe Codex, not the write
-        fi
-        [ "$trust" = trusted ] && [ "$enabled" = True ] && [ "$async" = False ] \
-            || { echo "REFINE HOOK NOT RUNNING IN CODEX: trust ${trust:-unknown}, enabled ${enabled:-unknown}, async ${async:-unknown} — install to trust it, or review it in Codex if it says modified"; return 1; }
-    else echo "NOT CHECKED: no codex here, so its hook trust is unverified"; fi
-    echo "the refine hook runs after landing commands in Claude ($DEST/settings.json) and Codex ($CODEX_HOOKS)"
+        with open(file) as f: data=json.load(f)
+    except FileNotFoundError: continue
+    hooks=data.get('hooks',{})
+    changed=False
+    for groups in hooks.values():
+        if not isinstance(groups,list): continue
+        for group in groups:
+            if not isinstance(group,dict): continue
+            kept=[]
+            for hook in group.get('hooks',[]):
+                try: words=shlex.split(str(hook.get('command','')))
+                except ValueError: words=[]
+                script=words[0] if len(words)==1 else ''
+                if len(words)==2 and os.path.basename(words[0]) in ('bash','sh','python3'):
+                    script=words[1]
+                owned=False
+                if os.path.isabs(script):
+                    for root in roots:
+                        root=os.path.realpath(root); target=os.path.realpath(script)
+                        if os.path.commonpath((root,target))!=root: continue
+                        rel=os.path.relpath(target,root)
+                        owned=any(prefix+rel in retired for prefix in ('.agents/skills/','.claude/skills/'))
+                        if owned: break
+                dead=hook.get('type')=='command' and owned and not os.path.exists(script)
+                if dead: changed=True
+                else: kept.append(hook)
+            if 'hooks' in group: group['hooks']=kept
+        groups[:]=[g for g in groups if not isinstance(g,dict) or g.get('hooks') or 'hooks' not in g]
+    if not changed: continue
+    if mode=='--check': sys.exit('DEAD MANAGED HOOK: '+file+'; install to remove it')
+    permissions=stat.S_IMODE(os.stat(file).st_mode)
+    fd,tmp=tempfile.mkstemp(prefix='.chief-hooks-',dir=os.path.dirname(file))
+    try:
+        os.fchmod(fd,permissions)
+        with os.fdopen(fd,'w') as f: json.dump(data,f,indent=2); f.flush(); os.fsync(f.fileno())
+        os.replace(tmp,file)
+    finally:
+        if os.path.exists(tmp): os.unlink(tmp)
+    print('removed dead owned hooks from '+file)
+PYHOOK
 }
 
 # The global core is generated from AGENTS.md, the one hand-edited source: it becomes ~/.claude/PRINCIPLES.md and the Codex global.
@@ -418,29 +398,19 @@ check_rule_budget() {
     return "$fail"
 }
 
-# Names the repo renamed away may live on only where a line says retired-ok (a migration that must name what it removes).
-check_retired_names() {
-    local list="$ROOT/.agents/retired-names" hits
-    [ -f "$list" ] || { echo "RETIRED NAMES LIST MISSING: $list"; return 1; }
-    hits=$(cd "$ROOT" && git ls-files -- AGENTS.md .agents .githooks install.sh | grep -vx '.agents/retired-names' \
-        | xargs grep -nHFf .agents/retired-names 2>/dev/null | grep -v 'retired-ok')
-    [ -z "$hits" ] || { echo "RETIRED NAME IN USE:"; printf '%s\n' "$hits" | sed 's/^/    /'; return 1; }
-    echo "retired names: none in use"
-}
 
 prerequisites || exit 1
 [ "${1-}" = "--write-manifest" ] && { write_manifest; exit $?; }
 check_repo || exit 1
 check_rule_budget || exit 1
-check_retired_names || exit 1
 [ "${1-}" = "--check" ] || { install_files && install_globals; } || { echo "install failed — nothing verified"; exit 1; }
 # Wiring the guard comes before verifying: an unrelated drift must not leave it unwired or hide that it is off.
 wire_hooks "${1-}"; wired=$?
 push_ready; ready=$?
-wire_hooks_refine "${1-}"; hooked=$?
+prune_dead_hooks "${1-}"; pruned=$?
 [ "$wired" = 0 ] && [ "$ready" = 0 ] || exit 1
 verify_install || exit 1
 verify_globals || exit 1
-[ "$hooked" = 0 ] || exit 1   # last, so its failure never hides the other reports
+[ "$pruned" = 0 ] || exit 1   # last, so its failure never hides the other reports
 # Explicit exit: a trailing false `[ ]` test would otherwise become the script's status.
 exit 0
