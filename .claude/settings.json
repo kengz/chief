@@ -1,5 +1,4 @@
 {
-  "teammateMode": "in-process",
   "permissions": {
     "additionalDirectories": [
       "~/projects"
